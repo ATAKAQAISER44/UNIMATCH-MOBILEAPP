@@ -2,7 +2,10 @@
 // src/components/profile-setup/NumberInput.js
 
 import React from 'react';
-import { View, Text, TextInput } from 'react-native';
+import {
+  View,
+} from 'react-native';
+import { Text, TextInput } from '../AppText';
 
 import { profileSetupStyles as styles } from '../../styles/profileSetupStyles';
 

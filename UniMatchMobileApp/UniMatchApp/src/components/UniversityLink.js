@@ -5,7 +5,7 @@
 // for students and researchers alike.
 
 import React, { useCallback } from 'react';
-import { Text } from 'react-native';
+import { Text } from './AppText';
 import { useNavigation } from '@react-navigation/native';
 
 import { authTheme } from '../styles/authTheme';

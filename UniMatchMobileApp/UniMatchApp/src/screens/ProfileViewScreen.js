@@ -4,12 +4,12 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   Image,
   ActivityIndicator,
 } from 'react-native';
+import { Text } from '../components/AppText';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -493,7 +493,7 @@ function MiniInfoPill({ icon, label, value }) {
       <View style={styles.miniInfoTextBox}>
         <Text style={styles.miniInfoLabel}>{label}</Text>
 
-        <Text style={styles.miniInfoValue} numberOfLines={1}>
+        <Text style={styles.miniInfoValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
           {value}
         </Text>
       </View>

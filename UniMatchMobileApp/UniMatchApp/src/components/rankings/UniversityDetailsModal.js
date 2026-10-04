@@ -4,11 +4,11 @@
 import React, { memo, useMemo } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   Modal,
   ScrollView,
 } from 'react-native';
+import { Text } from '../AppText';
 
 import { rankingsStyles as styles } from '../../styles/rankingsStyles';
 import { EXCLUDED_DETAIL_KEYS } from '../../constants/rankingsConstants';

@@ -2,7 +2,10 @@
 // src/components/rankings/RankingTableHeader.js
 
 import React, { memo } from 'react';
-import { View, Text } from 'react-native';
+import {
+  View,
+} from 'react-native';
+import { Text } from '../AppText';
 
 import { rankingsStyles as styles } from '../../styles/rankingsStyles';
 

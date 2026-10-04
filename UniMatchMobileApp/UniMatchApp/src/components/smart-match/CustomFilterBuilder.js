@@ -4,13 +4,12 @@
 import React, { useMemo, useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   Modal,
   FlatList,
 } from 'react-native';
+import { Text, TextInput } from '../AppText';
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { authTheme } from '../../styles/authTheme';

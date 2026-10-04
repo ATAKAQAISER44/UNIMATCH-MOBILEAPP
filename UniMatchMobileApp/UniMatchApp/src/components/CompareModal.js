@@ -6,14 +6,13 @@ import UniversityLink from './UniversityLink';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
-  Text,
   Modal,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   StyleSheet,
   Platform,
 } from 'react-native';
+import { Text, TextInput } from './AppText';
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { authTheme } from '../styles/authTheme';

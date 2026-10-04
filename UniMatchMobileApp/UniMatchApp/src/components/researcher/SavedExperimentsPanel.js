@@ -5,7 +5,11 @@
 // share its settings as CSV or delete it.
 
 import React from 'react';
-import { Alert, Text, View } from 'react-native';
+import {
+  Alert,
+  View,
+} from 'react-native';
+import { Text } from '../AppText';
 
 import { Card, EmptyState, GradientButton, OutlineButton, SectionHeading } from './ResearcherUI';
 import { researcherStyles as styles } from '../../styles/researcherStyles';

@@ -4,8 +4,6 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
@@ -13,6 +11,7 @@ import {
   Pressable,
   StyleSheet,
 } from 'react-native';
+import { Text, TextInput } from '../AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bottomPadding } from '../../utils/safeArea';
 

@@ -5,12 +5,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
-  Text,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Text } from '../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bottomPadding } from '../utils/safeArea';
 

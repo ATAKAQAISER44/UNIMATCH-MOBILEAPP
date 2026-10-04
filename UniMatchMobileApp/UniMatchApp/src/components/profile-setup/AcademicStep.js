@@ -1,7 +1,11 @@
 // src/components/profile-setup/AcademicStep.js
 
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+} from 'react-native';
+import { Text, TextInput } from '../AppText';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import {

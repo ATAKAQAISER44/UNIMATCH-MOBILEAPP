@@ -5,8 +5,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   ActivityIndicator,
   Image,
@@ -14,6 +12,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';

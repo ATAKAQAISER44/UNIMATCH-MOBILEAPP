@@ -4,7 +4,11 @@
 // edition with every indicator as published (original) and 0-1 normalized.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import {
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Text } from '../../components/AppText';
 
 import ResearcherLayout from '../../components/researcher/ResearcherLayout';
 import UniversityLink from '../../components/UniversityLink';

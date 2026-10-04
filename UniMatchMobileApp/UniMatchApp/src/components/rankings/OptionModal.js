@@ -4,11 +4,11 @@
 import React, { memo } from 'react';
 import {
   View,
-  Text,
   FlatList,
   TouchableOpacity,
   Modal,
 } from 'react-native';
+import { Text } from '../AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { rankingsStyles as styles } from '../../styles/rankingsStyles';
 

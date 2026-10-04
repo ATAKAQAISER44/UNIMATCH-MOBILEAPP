@@ -6,7 +6,11 @@
 // On a phone every field is a small block with one column per university.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import {
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Text } from '../../components/AppText';
 
 import ResearcherLayout from '../../components/researcher/ResearcherLayout';
 import UniversityLink from '../../components/UniversityLink';

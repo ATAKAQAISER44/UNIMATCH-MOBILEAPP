@@ -7,7 +7,11 @@
 //      edition selector and pages through every university.
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import {
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Text } from '../../components/AppText';
 
 import ResearcherLayout from '../../components/researcher/ResearcherLayout';
 import UniversityLink from '../../components/UniversityLink';

@@ -1,6 +1,10 @@
 
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+} from 'react-native';
+import { Text, TextInput } from '../AppText';
 
 import { COLORS } from '../../constants';
 import { loginStyles as styles } from '../../styles/loginStyles';

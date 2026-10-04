@@ -2,15 +2,14 @@
 import React, { useMemo, useState } from 'react';
 import {
   View,
-  Text,
   Image,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Modal,
   FlatList,
   ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LinearGradient } from 'expo-linear-gradient';
@@ -321,7 +320,7 @@ function PasswordStrength({ passwordStrength }) {
       </View>
 
       <View style={styles.strengthInfoRow}>
-        <Text style={styles.passwordHint} numberOfLines={1}>
+        <Text style={styles.passwordHint} numberOfLines={2}>
           8+ characters with a letter, number and symbol.
         </Text>
 

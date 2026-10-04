@@ -2,7 +2,10 @@
 // src/components/profile-setup/SectionHeader.js
 
 import React from 'react';
-import { View, Text } from 'react-native';
+import {
+  View,
+} from 'react-native';
+import { Text } from '../AppText';
 
 import { STEP_META } from '../../constants/profileSetupConstants';
 import { profileSetupStyles as styles } from '../../styles/profileSetupStyles';

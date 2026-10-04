@@ -12,10 +12,10 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Text } from '../AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bottomPadding } from '../../utils/safeArea';

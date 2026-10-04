@@ -3,13 +3,13 @@ import React from 'react';
 import {
   Modal,
   View,
-  Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
   ScrollView,
   StyleSheet,
   Platform,
 } from 'react-native';
+import { Text } from './AppText';
 
 import { authTheme } from '../styles/authTheme';
 

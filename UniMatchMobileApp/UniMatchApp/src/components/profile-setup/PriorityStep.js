@@ -1,7 +1,11 @@
 // src/components/profile-setup/PriorityStep.js
 
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+} from 'react-native';
+import { Text } from '../AppText';
 
 import { SelectField } from '../../components';
 import { PRIORITY_LABELS } from '../../constants/profileSetupConstants';

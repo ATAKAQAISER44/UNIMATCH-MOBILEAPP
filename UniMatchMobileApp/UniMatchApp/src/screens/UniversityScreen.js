@@ -7,7 +7,13 @@
 // /researcher/university-journey and /researcher/attributes.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ScrollView,
+  StatusBar,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Text } from '../components/AppText';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

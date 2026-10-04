@@ -1,9 +1,14 @@
 // src/components/index.js
 import React from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
-  ActivityIndicator, StyleSheet, Modal, ScrollView,
+  View,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+  Modal,
+  ScrollView,
 } from 'react-native';
+import { Text, TextInput } from './AppText';
 import { COLORS } from '../constants';
 
 // ─── Button ───────────────────────────────────────────────────────────────────

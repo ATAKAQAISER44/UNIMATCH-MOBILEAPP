@@ -2,7 +2,12 @@
 // src/components/rankings/RankingFilterCard.js
 
 import React, { memo } from 'react';
-import { ActivityIndicator, View, Text, TextInput, TouchableOpacity } from 'react-native';
+import {
+  ActivityIndicator,
+  View,
+  TouchableOpacity,
+} from 'react-native';
+import { Text, TextInput } from '../AppText';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { rankingsStyles as styles } from '../../styles/rankingsStyles';

@@ -2,7 +2,11 @@
 // src/components/dashboard/DatasetSection.js
 
 import React, { memo, useCallback } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+} from 'react-native';
+import { Text } from '../AppText';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { dashboardStyles as styles } from '../../styles/dashboardStyles';

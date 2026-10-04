@@ -2,7 +2,11 @@
 // src/components/rankings/RankingTabs.js
 
 import React, { memo } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+} from 'react-native';
+import { Text } from '../AppText';
 
 import { rankingsStyles as styles } from '../../styles/rankingsStyles';
 import { TABS } from '../../constants/rankingsConstants';

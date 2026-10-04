@@ -1,7 +1,10 @@
 // src/components/rankings/RankingStats.js
 
 import React, { memo } from 'react';
-import { View, Text } from 'react-native';
+import {
+  View,
+} from 'react-native';
+import { Text } from '../AppText';
 
 import { rankingsStyles as styles } from '../../styles/rankingsStyles';
 
@@ -9,8 +12,8 @@ const StatCard = memo(function StatCard({ value, label, icon }) {
   return (
     <View style={styles.statCard}>
       <View style={styles.statTextBlock}>
-        <Text style={styles.statValue}>{value}</Text>
-        <Text style={styles.statLabel}>{label}</Text>
+        <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</Text>
+        <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{label}</Text>
       </View>
 
       <View style={styles.statIconBox}>

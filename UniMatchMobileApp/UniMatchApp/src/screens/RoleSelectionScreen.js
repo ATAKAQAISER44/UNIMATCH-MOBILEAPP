@@ -3,7 +3,6 @@ import React, { useMemo, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -11,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Text } from '../components/AppText';
 
 import { LinearGradient } from 'expo-linear-gradient';
 

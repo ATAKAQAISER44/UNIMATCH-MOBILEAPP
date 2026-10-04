@@ -4,11 +4,11 @@
 import React, { memo, useCallback } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { Text } from '../../AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bottomPadding } from '../../../utils/safeArea';
 

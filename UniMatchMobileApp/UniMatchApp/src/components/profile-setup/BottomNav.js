@@ -1,7 +1,12 @@
 // src/components/profile-setup/BottomNav.js
 
 import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
+import { Text } from '../AppText';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { authTheme } from '../../styles/authTheme';

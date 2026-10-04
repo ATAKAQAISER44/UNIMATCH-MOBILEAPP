@@ -6,7 +6,12 @@
 // read what it means.
 
 import React, { useMemo, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ScrollView,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Text } from '../AppText';
 
 import { Card, CollapsibleCard, FindingCards, SectionHeading, usePersistentToggle } from './ResearcherUI';
 import { researcherStyles as styles } from '../../styles/researcherStyles';

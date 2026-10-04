@@ -4,12 +4,11 @@
 import React from 'react';
 import {
   View,
-  Text,
   Modal,
   ScrollView,
   TouchableOpacity,
-  TextInput,
 } from 'react-native';
+import { Text, TextInput } from '../../AppText';
 
 import { Ionicons } from '@expo/vector-icons';
 

@@ -2,7 +2,12 @@
 // src/components/dashboard/DashboardHero.js
 
 import React, { memo } from 'react';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+  Image,
+} from 'react-native';
+import { Text } from '../AppText';
 
 import { dashboardStyles as styles } from '../../styles/dashboardStyles';
 

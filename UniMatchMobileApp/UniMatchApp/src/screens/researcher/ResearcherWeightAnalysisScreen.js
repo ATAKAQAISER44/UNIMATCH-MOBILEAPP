@@ -9,7 +9,10 @@
 //               and opens the Weights tab.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import {
+  View,
+} from 'react-native';
+import { Text, TextInput } from '../../components/AppText';
 import { useFocusEffect } from '@react-navigation/native';
 import Slider from '@react-native-community/slider';
 

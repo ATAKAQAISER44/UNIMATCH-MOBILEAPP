@@ -3,11 +3,11 @@
 import React, { memo } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import { Text } from '../AppText';
 
 import { authTheme } from '../../styles/authTheme';
 import UniversityLink from '../UniversityLink';

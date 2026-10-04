@@ -4,11 +4,11 @@
 import React, { memo, useMemo } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   Modal,
   Pressable,
 } from 'react-native';
+import { Text } from '../AppText';
 
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

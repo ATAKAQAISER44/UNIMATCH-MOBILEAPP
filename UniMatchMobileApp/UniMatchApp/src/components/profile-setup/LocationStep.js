@@ -1,7 +1,11 @@
 // src/components/profile-setup/LocationStep.js
 
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+} from 'react-native';
+import { Text } from '../AppText';
 
 import { REGIONS } from '../../constants';
 import { SelectField } from '../../components';

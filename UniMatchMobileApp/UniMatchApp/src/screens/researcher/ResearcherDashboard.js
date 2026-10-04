@@ -5,7 +5,12 @@
 // every role.
 
 import React, { memo } from 'react';
-import { Image, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Image,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Text } from '../../components/AppText';
 
 import ResearcherLayout from '../../components/researcher/ResearcherLayout';
 import { PageHeader } from '../../components/researcher/ResearcherUI';

@@ -6,10 +6,10 @@ import React, { memo } from 'react';
 
 import {
   View,
-  Text,
   TouchableOpacity,
   Image,
 } from 'react-native';
+import { Text } from '../AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { topBarPadding } from '../../utils/safeArea';
 

@@ -2,7 +2,11 @@
 // src/components/profile-setup/TuitionFeeStep.js
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import {
+  View,
+  StyleSheet,
+} from 'react-native';
+import { Text } from '../AppText';
 
 import { SCHOLARSHIP_OPTIONS } from '../../constants';
 import { SelectField } from '../../components';

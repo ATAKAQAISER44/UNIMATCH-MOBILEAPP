@@ -10,11 +10,11 @@ import {
   Alert,
   Image,
   StatusBar,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
+import { MAX_FONT_SCALE, Text, TextInput } from '../AppText';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -179,7 +179,7 @@ export function GradientButton({ title, onPress, disabled, loading, small, style
         {loading ? (
           <ActivityIndicator size="small" color="#FFFFFF" />
         ) : (
-          <Text style={[styles.gradientButtonText, small && { fontSize: 11.5 }]}>
+          <Text style={[styles.gradientButtonText, small && { fontSize: 11.5 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
             {icon ? `${icon}  ` : ''}
             {title}
           </Text>
@@ -205,6 +205,7 @@ export function OutlineButton({ title, onPress, disabled, small, danger, style }
     >
       <Text
         style={[styles.outlineButtonText, small && { fontSize: 11.5 }, danger && styles.dangerButtonText]}
+        numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}
       >
         {title}
       </Text>
@@ -271,15 +272,20 @@ export function DatasetYearBar({ datasetKey, onDatasetChange, year, years, onYea
     [years, year]
   );
 
+  // On narrow phones (or with large system text) the edition picker moves
+  // under the QS / THE / ARWU switch so neither gets squeezed.
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = width / Math.min(Math.max(fontScale || 1, 1), MAX_FONT_SCALE) < 360;
+
   return (
-    <View style={styles.switcherRow}>
+    <View style={[styles.switcherRow, stacked && { flexDirection: 'column', alignItems: 'stretch' }]}>
       <SegmentedControl
         options={DATASET_OPTIONS}
         value={datasetKey}
         onChange={onDatasetChange}
-        style={{ flex: 1, marginBottom: 0 }}
+        style={stacked ? { marginBottom: 0 } : { flex: 1, marginBottom: 0 }}
       />
-      <View style={{ width: 100 }}>
+      <View style={stacked ? null : { width: 100 }}>
         <SelectField
           title="Edition"
           value={year}

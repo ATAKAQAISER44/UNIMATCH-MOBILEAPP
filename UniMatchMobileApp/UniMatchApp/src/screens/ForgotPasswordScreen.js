@@ -3,13 +3,12 @@ import React, { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
-  Text,
   Image,
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
-  TextInput,
 } from 'react-native';
+import { Text, TextInput } from '../components/AppText';
 
 import { LinearGradient } from 'expo-linear-gradient';
 

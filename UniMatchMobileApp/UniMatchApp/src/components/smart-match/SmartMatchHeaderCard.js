@@ -4,7 +4,10 @@
 
 import React, { memo } from 'react';
 
-import { View, Text } from 'react-native';
+import {
+  View,
+} from 'react-native';
+import { Text } from '../AppText';
 
 import { smartMatchStyles as styles } from '../../styles/smartMatchStyles';
 

@@ -1,7 +1,11 @@
 // src/components/profile-setup/ProfileSetupHeader.js
 
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+} from 'react-native';
+import { Text } from '../AppText';
 
 import { STEP_META } from '../../constants/profileSetupConstants';
 import { profileSetupStyles as styles } from '../../styles/profileSetupStyles';
@@ -30,11 +34,11 @@ function StepBox({ item, activeStep, onPress }) {
         <Text style={styles.stepIcon}>{item.icon}</Text>
       </View>
 
-      <Text style={[styles.stepNumber, isActive && styles.stepTextActive]}>
+      <Text style={[styles.stepNumber, isActive && styles.stepTextActive]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         Step {item.step}
       </Text>
 
-      <Text style={[styles.stepName, isActive && styles.stepTextActive]}>
+      <Text style={[styles.stepName, isActive && styles.stepTextActive]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         {item.title}
       </Text>
     </TouchableOpacity>

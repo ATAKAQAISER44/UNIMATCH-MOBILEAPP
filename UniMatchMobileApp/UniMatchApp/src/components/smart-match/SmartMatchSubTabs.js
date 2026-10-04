@@ -2,7 +2,12 @@
 // src/components/smart-match/SmartMatchSubTabs.js
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
+import { Text } from '../AppText';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { authTheme } from '../../styles/authTheme';

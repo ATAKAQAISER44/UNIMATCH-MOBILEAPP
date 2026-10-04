@@ -4,12 +4,12 @@
 import React from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   ScrollView,
   Alert,
   StyleSheet,
 } from 'react-native';
+import { Text } from '../AppText';
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { authTheme } from '../../styles/authTheme';
