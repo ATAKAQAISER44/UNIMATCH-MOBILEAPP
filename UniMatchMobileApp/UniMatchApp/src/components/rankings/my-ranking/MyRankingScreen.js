@@ -1,7 +1,7 @@
 
 // src/components/rankings/my-ranking/MyRankingScreen.js
 
-import React from 'react';
+import React, { memo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -100,6 +100,13 @@ export default function MyRankingScreen({
   handleToggleCompare,
   handleToggleSave,
 }) {
+  const toggleBreakdown = useCallback(
+    (cardKey) => {
+      setOpenBreakdownKey((previous) => (previous === cardKey ? null : cardKey));
+    },
+    [setOpenBreakdownKey]
+  );
+
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
@@ -402,14 +409,13 @@ export default function MyRankingScreen({
             open={openBreakdownKey === cardKey}
             compared={isCompared(item)}
             saved={isSaved(item)}
-            onToggleOpen={() =>
-              setOpenBreakdownKey(
-                openBreakdownKey === cardKey ? null : cardKey
-              )
-            }
-            onDetails={() => setSelectedUni(item)}
-            onCompare={() => handleToggleCompare(item)}
-            onSave={() => handleToggleSave(item)}
+            // PERF: stable handlers so memoized cards skip re-rendering while
+            // weight sliders are dragged (each drag step re-renders this
+            // screen).
+            onToggleOpen={toggleBreakdown}
+            onDetails={setSelectedUni}
+            onCompare={handleToggleCompare}
+            onSave={handleToggleSave}
           />
         );
       })}
@@ -708,7 +714,9 @@ function SmallActionButton({ label, icon, onPress, disabled }) {
   );
 }
 
-function MyRankingResultCard({
+// PERF: memo() + handlers that receive the item/key, so cards only
+// re-render when their own data or compare/save/open state changes.
+const MyRankingResultCard = memo(function MyRankingResultCard({
   item,
   cardKey,
   open,
@@ -720,6 +728,11 @@ function MyRankingResultCard({
   onSave,
 }) {
   const explanations = Array.isArray(item?.explanation) ? item.explanation : [];
+
+  const handleDetails = () => onDetails?.(item);
+  const handleCompare = () => onCompare?.(item);
+  const handleSave = () => onSave?.(item);
+  const handleToggleOpen = () => onToggleOpen?.(cardKey);
 
   return (
     <View style={myStyles.resultCard}>
@@ -734,7 +747,7 @@ function MyRankingResultCard({
 
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={onDetails}
+          onPress={handleDetails}
           style={myStyles.resultTitleBox}
         >
           <Text numberOfLines={2} style={myStyles.resultName}>
@@ -782,7 +795,7 @@ function MyRankingResultCard({
       <View style={myStyles.cardActions}>
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={onCompare}
+          onPress={handleCompare}
           style={[myStyles.iconActionBtn, compared && myStyles.compareIconActive]}
         >
           <Ionicons
@@ -794,7 +807,7 @@ function MyRankingResultCard({
 
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={onSave}
+          onPress={handleSave}
           style={[myStyles.iconActionBtn, saved && myStyles.saveIconActive]}
         >
           <Ionicons
@@ -806,7 +819,7 @@ function MyRankingResultCard({
 
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={onToggleOpen}
+          onPress={handleToggleOpen}
           style={myStyles.breakdownBtn}
         >
           <Ionicons
@@ -836,7 +849,7 @@ function MyRankingResultCard({
       ) : null}
     </View>
   );
-}
+});
 
 function ScorePill({ label, value }) {
   return (

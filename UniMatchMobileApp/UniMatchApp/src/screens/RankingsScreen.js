@@ -546,22 +546,26 @@ export default function RankingsScreen({ route = {}, navigation }) {
     }, { pop: true });
   }, [datasetKey, datasetInfo.title, navigation]);
 
-  const isCompared = useCallback(
-    (university) => {
-      const key = getUniversityKey(university);
-
-      return compareList.some((item) => getUniversityKey(item) === key);
-    },
+  // PERF: Set lookups instead of scanning the compare/saved lists for every
+  // row on every render (50-100 rows x list length).
+  const comparedKeys = useMemo(
+    () => new Set(compareList.map(getUniversityKey)),
     [compareList]
   );
 
-  const isSaved = useCallback(
-    (university) => {
-      const key = getUniversityKey(university);
-
-      return savedList.some((item) => getUniversityKey(item) === key);
-    },
+  const savedKeys = useMemo(
+    () => new Set(savedList.map(getUniversityKey)),
     [savedList]
+  );
+
+  const isCompared = useCallback(
+    (university) => comparedKeys.has(getUniversityKey(university)),
+    [comparedKeys]
+  );
+
+  const isSaved = useCallback(
+    (university) => savedKeys.has(getUniversityKey(university)),
+    [savedKeys]
   );
 
   const handleAddToCompare = useCallback((university) => {
@@ -1205,13 +1209,40 @@ export default function RankingsScreen({ route = {}, navigation }) {
         activeTab={activeTab}
         compared={isCompared(item)}
         saved={isSaved(item)}
-        onDetails={() => setSelectedUni(item)}
-        onCompare={() => handleToggleCompare(item)}
-        onSave={() => handleToggleSave(item)}
+        // PERF: stable handlers (the row passes `item` back), so memoized
+        // rows whose state did not change are skipped on re-render.
+        onDetails={setSelectedUni}
+        onCompare={handleToggleCompare}
+        onSave={handleToggleSave}
       />
     ),
     [activeTab, handleToggleCompare, handleToggleSave, isCompared, isSaved]
   );
+
+  const rowOptionLabels = useMemo(() => ROW_OPTIONS.map(String), []);
+
+  const handleChoiceSelect = useCallback(
+    (key) => {
+      choiceModal?.onSelect?.(key);
+      setChoiceModal(null);
+    },
+    [choiceModal]
+  );
+
+  const closeChoiceModal = useCallback(() => setChoiceModal(null), []);
+  const closeSaveNameModal = useCallback(() => setSaveNameModal(false), []);
+  const closeSavedRankingsModal = useCallback(
+    () => setSavedRankingsModal(false),
+    []
+  );
+
+  const handleDetailsCompare = useCallback(() => {
+    if (selectedUni) handleToggleCompare(selectedUni);
+  }, [handleToggleCompare, selectedUni]);
+
+  const handleDetailsSave = useCallback(() => {
+    if (selectedUni) handleToggleSave(selectedUni);
+  }, [handleToggleSave, selectedUni]);
 
   const keyExtractor = useCallback(
     (item, index) => `${getUniversityKey(item)}-${index}`,
@@ -1434,7 +1465,7 @@ export default function RankingsScreen({ route = {}, navigation }) {
       <OptionModal
         visible={rowsModal}
         title="Rows Per Page"
-        options={ROW_OPTIONS.map(String)}
+        options={rowOptionLabels}
         selected={String(rowsPerPage)}
         activeColor={authTheme.colors.brandTeal}
         activeLightColor="#ECFDF5"
@@ -1446,11 +1477,8 @@ export default function RankingsScreen({ route = {}, navigation }) {
         visible={!!choiceModal}
         title={choiceModal?.title}
         items={choiceModal?.items || []}
-        onSelect={(key) => {
-          choiceModal?.onSelect?.(key);
-          setChoiceModal(null);
-        }}
-        onClose={() => setChoiceModal(null)}
+        onSelect={handleChoiceSelect}
+        onClose={closeChoiceModal}
       />
 
       <SaveRankingNameModal
@@ -1458,7 +1486,7 @@ export default function RankingsScreen({ route = {}, navigation }) {
         value={rankingNameInput}
         datasetKey={datasetKey}
         onChange={setRankingNameInput}
-        onClose={() => setSaveNameModal(false)}
+        onClose={closeSaveNameModal}
         onSave={saveMyRanking}
       />
 
@@ -1466,7 +1494,7 @@ export default function RankingsScreen({ route = {}, navigation }) {
         visible={savedRankingsModal}
         savedRankings={savedRankings}
         datasetKey={datasetKey}
-        onClose={() => setSavedRankingsModal(false)}
+        onClose={closeSavedRankingsModal}
         onApply={applySavedRanking}
         onDelete={deleteSavedRanking}
       />
@@ -1483,8 +1511,8 @@ export default function RankingsScreen({ route = {}, navigation }) {
         onClose={closeDetailsModal}
         compared={selectedUni ? isCompared(selectedUni) : false}
         saved={selectedUni ? isSaved(selectedUni) : false}
-        onCompare={() => selectedUni && handleToggleCompare(selectedUni)}
-        onSave={() => selectedUni && handleToggleSave(selectedUni)}
+        onCompare={handleDetailsCompare}
+        onSave={handleDetailsSave}
       />
 
       <CompareModal

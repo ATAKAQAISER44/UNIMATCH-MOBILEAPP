@@ -109,13 +109,31 @@ function getRaw(item) {
   return item?.raw && typeof item.raw === 'object' ? item.raw : {};
 }
 
+// PERF: name, country, key and every table cell used to spread the whole
+// university (all raw CSV columns) into a new object on each call - several
+// copies per university per keystroke in the search box, and one per cell in
+// the comparison table. University objects are never mutated, so cache the
+// merged view per object.
+const mergedItemCache = new WeakMap();
+
 function getMergedItem(item) {
+  const cacheable = item !== null && typeof item === 'object';
+
+  if (cacheable) {
+    const cached = mergedItemCache.get(item);
+    if (cached) return cached;
+  }
+
   const raw = getRaw(item);
 
-  return {
+  const merged = {
     ...raw,
     ...(item || {}),
   };
+
+  if (cacheable) mergedItemCache.set(item, merged);
+
+  return merged;
 }
 
 function getUniversityName(item) {

@@ -1,6 +1,6 @@
 // src/components/smart-match/PaginatedResults.js
 
-import React from 'react';
+import React, { memo } from 'react';
 import {
   View,
   Text,
@@ -161,7 +161,12 @@ function MetaChip({ text }) {
   );
 }
 
-function UniversityCard({ university = {}, index }) {
+// PERF: memo() so cards are not rebuilt when the parent re-renders for
+// unrelated state (form inputs, notices) while results are on screen.
+const UniversityCard = memo(function UniversityCard({
+  university = {},
+  index,
+}) {
   const raw = getRaw(university);
 
   const rank = getRank(university, index);
@@ -270,7 +275,7 @@ function UniversityCard({ university = {}, index }) {
       ) : null}
     </View>
   );
-}
+});
 
 export default function PaginatedResults({
   universities = [],

@@ -89,14 +89,31 @@ export function getPersonalizedScore(item) {
   return getFirstAvailable(item, PERSONALIZED_SCORE_KEYS, '—');
 }
 
+// PERF: the key is looked up many times per render (compare/save checks,
+// dedupe, list keys) and each lookup scans several name/country fields.
+// University objects from the API are never mutated, so the key for a given
+// object can be cached. WeakMap entries are freed with the objects.
+const universityKeyCache = new WeakMap();
+
 export function getUniversityKey(item) {
+  const cacheable = item !== null && typeof item === 'object';
+
+  if (cacheable) {
+    const cached = universityKeyCache.get(item);
+    if (cached !== undefined) return cached;
+  }
+
   const id = item?.university_id || item?.id || item?.raw?.university_id || '';
   const name = getUniName(item);
   const country = getCountry(item);
 
-  return `${String(id).toLowerCase()}|${String(name).toLowerCase()}|${String(
+  const key = `${String(id).toLowerCase()}|${String(name).toLowerCase()}|${String(
     country
   ).toLowerCase()}`;
+
+  if (cacheable) universityKeyCache.set(item, key);
+
+  return key;
 }
 
 export function dedupeUniversities(items = []) {

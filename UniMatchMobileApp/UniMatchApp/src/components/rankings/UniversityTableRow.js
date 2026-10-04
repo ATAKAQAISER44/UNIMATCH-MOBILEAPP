@@ -125,21 +125,29 @@ const UniversityTableRow = memo(function UniversityTableRow({
       ? getPersonalizedRank(item, index)
       : getOfficialRank(item);
 
+  // PERF: handlers receive the row's item, so the parent can pass the same
+  // stable functions to every row. Before, each row got new inline arrow
+  // functions on every parent render, which defeated memo() and re-rendered
+  // all visible rows (e.g. on every save/compare tap).
+  const handleDetailsPress = () => {
+    onDetails?.(item);
+  };
+
   const handleComparePress = (event) => {
     event.stopPropagation();
-    onCompare?.();
+    onCompare?.(item);
   };
 
   const handleSavePress = (event) => {
     event.stopPropagation();
-    onSave?.();
+    onSave?.(item);
   };
 
   return (
     <TouchableOpacity
       style={styles.tableRow}
       activeOpacity={0.78}
-      onPress={onDetails}
+      onPress={handleDetailsPress}
     >
       <View style={styles.rankColumn}>
         <View style={[styles.rankPill, index === 0 && styles.rankPillTop]}>
