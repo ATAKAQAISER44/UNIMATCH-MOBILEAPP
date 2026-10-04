@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { bottomPadding } from '../utils/safeArea';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -85,6 +87,7 @@ import {
 } from '../utils/myRankingUtils';
 
 export default function RankingsScreen({ route = {}, navigation }) {
+  const insets = useSafeAreaInsets();
   const { dataset = 'qs' } = route?.params || {};
 
   const datasetKey = String(dataset || 'qs').toLowerCase();
@@ -1351,7 +1354,7 @@ export default function RankingsScreen({ route = {}, navigation }) {
           windowSize={9}
           contentContainerStyle={[
             styles.listContent,
-            compareList.length > 0 && styles.listContentWithCompareBar,
+            bottomPadding(insets, compareList.length > 0 ? 120 : 24),
           ]}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={

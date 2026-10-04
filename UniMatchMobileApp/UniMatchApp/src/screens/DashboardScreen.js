@@ -3,6 +3,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, ScrollView, RefreshControl } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { bottomPadding } from '../utils/safeArea';
 
 import { supabase } from '../services/supabase';
 import { getSignedInUser } from '../services/session';
@@ -34,6 +36,7 @@ function isResearcherRole(role) {
 }
 
 export default function DashboardScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState(null);
   const [academic, setAcademic] = useState(null);
   const [priority, setPriority] = useState(null);
@@ -276,7 +279,7 @@ export default function DashboardScreen({ navigation }) {
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, bottomPadding(insets, 22)]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

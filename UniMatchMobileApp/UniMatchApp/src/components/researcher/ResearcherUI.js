@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { topBarPadding } from '../../utils/safeArea';
 
 import PickerModal from '../PickerModal';
 import { authTheme } from '../../styles/authTheme';
@@ -43,7 +44,7 @@ export function ResearcherTopBar({ onBack, onMenu }) {
       colors={authTheme.gradients.button}
       start={{ x: 0, y: 0.5 }}
       end={{ x: 1, y: 0.5 }}
-      style={[styles.topBar, { paddingTop: insets.top + 10 }]}
+      style={[styles.topBar, topBarPadding(insets)]}
     >
       <StatusBar barStyle="light-content" />
       <TouchableOpacity

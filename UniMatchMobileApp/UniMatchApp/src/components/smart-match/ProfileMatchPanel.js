@@ -13,6 +13,8 @@ import {
   Pressable,
   StyleSheet,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { bottomPadding } from '../../utils/safeArea';
 
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -365,6 +367,7 @@ export default function ProfileMatchPanel({
   isSaved,
   onOpenUniversity,
 }) {
+  const insets = useSafeAreaInsets();
   const [userId, setUserId] = useState(null);
 
   const [sortBy, setSortBy] = useState(DEFAULT_SORT_BY);
@@ -735,7 +738,7 @@ export default function ProfileMatchPanel({
     <>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, bottomPadding(insets, 24)]}
       >
         {headerComponent ? (
           <View style={{ marginBottom: 12 }}>{headerComponent}</View>

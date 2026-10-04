@@ -47,7 +47,7 @@ export default function SmartMatchSubTabs({ activeSubTab, setActiveSubTab }) {
                   <Ionicons name={tab.icon} size={16} color="#FFFFFF" />
                 </View>
 
-                <Text style={[styles.tabText, styles.tabTextActive]}>
+                <Text style={[styles.tabText, styles.tabTextActive]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
                   {tab.label}
                 </Text>
               </LinearGradient>
@@ -61,7 +61,7 @@ export default function SmartMatchSubTabs({ activeSubTab, setActiveSubTab }) {
                   />
                 </View>
 
-                <Text style={styles.tabText}>{tab.label}</Text>
+                <Text style={styles.tabText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{tab.label}</Text>
               </View>
             )}
           </TouchableOpacity>

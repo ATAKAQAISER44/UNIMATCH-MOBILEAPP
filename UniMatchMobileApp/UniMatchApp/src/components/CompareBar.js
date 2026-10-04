@@ -84,6 +84,10 @@ const styles = StyleSheet.create({
   },
 
   card: {
+    // Centred and capped on tablets.
+    width: '100%',
+    maxWidth: 936,
+    alignSelf: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#BCEAD8',

@@ -3,6 +3,7 @@
 
 import React, { useMemo, useState } from 'react';
 import UniversityLink from './UniversityLink';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
   Text,
@@ -255,7 +256,7 @@ export default function CompareModal({
   onGoToRankings,
 }) {
   const [searchText, setSearchText] = useState('');
-
+  const insets = useSafeAreaInsets();
   const canAddMore = compareList.length < MAX_COMPARE_LIMIT;
   const cleanSearch = searchText.trim().toLowerCase();
 
@@ -587,11 +588,9 @@ export default function CompareModal({
             {compareList.length < 2 && (
               <View style={styles.helpBox}>
                 <Text style={styles.helpTitle}>Add at least 2 universities</Text>
-                <Text style={styles.helpText}>
-                  Select one more university to view the comparison table.
-                </Text>
               </View>
             )}
+            <View style={{ height: insets.bottom }} />
           </ScrollView>
         </View>
       </View>
@@ -607,6 +606,9 @@ const styles = StyleSheet.create({
   },
 
   modalCard: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,

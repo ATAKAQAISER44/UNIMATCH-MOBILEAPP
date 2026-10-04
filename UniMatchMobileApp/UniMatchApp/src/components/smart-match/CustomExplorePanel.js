@@ -14,6 +14,8 @@ import {
   Pressable,
   StyleSheet,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { bottomPadding } from '../../utils/safeArea';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -241,6 +243,7 @@ export default function CustomExplorePanel({
   customNotice,
   fetchCustomExplore,
 }) {
+  const insets = useSafeAreaInsets();
   const draftStorageKey = useMemo(
     () => `unimatch_custom_explore_draft_${datasetKey}`,
     [datasetKey]
@@ -481,7 +484,7 @@ export default function CustomExplorePanel({
     <>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, bottomPadding(insets, 24)]}
       >
         {headerComponent ? (
           <View style={{ marginBottom: 12 }}>{headerComponent}</View>

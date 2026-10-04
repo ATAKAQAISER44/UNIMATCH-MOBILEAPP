@@ -11,6 +11,8 @@ import { ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-nativ
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { bottomPadding } from '../utils/safeArea';
+import { topBarPadding } from '../utils/safeArea';
 
 import { Card, ErrorBox, LoadingBlock, SectionHeading } from '../components/researcher/ResearcherUI';
 import { researcherStyles as styles } from '../styles/researcherStyles';
@@ -53,7 +55,7 @@ function UniversityTopBar({ onBack }) {
       colors={authTheme.gradients.button}
       start={{ x: 0, y: 0.5 }}
       end={{ x: 1, y: 0.5 }}
-      style={[styles.topBar, { paddingTop: insets.top + 10 }]}
+      style={[styles.topBar, topBarPadding(insets)]}
     >
       <StatusBar barStyle="light-content" />
       <TouchableOpacity style={styles.topButton} activeOpacity={0.82} onPress={onBack} accessibilityLabel="Go back">
@@ -121,6 +123,7 @@ function RankCard({ dataset, summary, highlight }) {
 }
 
 export default function UniversityScreen({ navigation, route }) {
+  const insets = useSafeAreaInsets();
   const params = route?.params || {};
   const name = params.name || 'University';
   const [journey, setJourney] = useState(null);
@@ -200,7 +203,7 @@ export default function UniversityScreen({ navigation, route }) {
     <View style={styles.screen}>
       <UniversityTopBar onBack={goBack} />
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, bottomPadding(insets, 32)]} showsVerticalScrollIndicator={false}>
         <View style={styles.heroCard}>
           <Text style={styles.heroTitle}>{journey?.name || name}</Text>
           {!!location && <Text style={styles.heroSubtitle}>📍 {location}</Text>}

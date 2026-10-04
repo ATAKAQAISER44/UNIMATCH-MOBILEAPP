@@ -15,6 +15,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { bottomPadding } from '../utils/safeArea';
+import { topBarPadding } from '../utils/safeArea';
 
 import { supabase } from '../services/supabase';
 import { getSignedInUser } from '../services/session';
@@ -25,6 +27,7 @@ import { profileViewStyles as styles } from '../styles/profileViewStyles';
 const LOGO = require('../../assets/images/icon.png');
 
 export default function ProfileViewScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [profileData, setProfileData] = useState({
     profile: null,
     academic: null,
@@ -290,7 +293,7 @@ export default function ProfileViewScreen({ navigation }) {
 
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, bottomPadding(insets, 24)]}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.sectionsWrap}>
@@ -319,7 +322,7 @@ export default function ProfileViewScreen({ navigation }) {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, bottomPadding(insets, 24)]}
         showsVerticalScrollIndicator={false}
       >
         <ProfileHeaderCard
@@ -377,7 +380,7 @@ function ProfileTopBar({ onBackPress }) {
       colors={authTheme.gradients.button}
       start={{ x: 0, y: 0.5 }}
       end={{ x: 1, y: 0.5 }}
-      style={[dashboardStyles.topBar, { paddingTop: insets.top + 10 }]}
+      style={[dashboardStyles.topBar, topBarPadding(insets)]}
     >
       <TouchableOpacity
         style={styles.topBackButton}

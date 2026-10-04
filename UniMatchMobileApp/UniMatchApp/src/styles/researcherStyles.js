@@ -238,9 +238,11 @@ export const researcherStyles = StyleSheet.create({
   buttonRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
 
   // ── Stats / findings ───────────────────────────────────────────────────
-  statGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, marginBottom: 12 },
+  // Grids reflow by width: 2 per row on phones, 3-4 on tablets.
+  statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   statCard: {
-    width: '48.5%',
+    flexGrow: 1,
+    flexBasis: 140,
     minHeight: 66,
     borderRadius: 15,
     paddingHorizontal: 10,
@@ -287,7 +289,8 @@ export const researcherStyles = StyleSheet.create({
   rowScoreLabel: { fontSize: 9, fontWeight: '800', color: colors.brandMuted, textTransform: 'uppercase' },
   kvGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 9, rowGap: 6, columnGap: 6 },
   kvItem: {
-    width: '48.8%',
+    flexGrow: 1,
+    flexBasis: 130,
     borderRadius: 11,
     backgroundColor: '#F3FBF8',
     borderWidth: 1,
@@ -483,6 +486,9 @@ export const researcherStyles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   modalCard: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
     borderRadius: 24,
     backgroundColor: '#FFFFFF',
     padding: 18,

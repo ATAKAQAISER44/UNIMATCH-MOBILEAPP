@@ -4,9 +4,8 @@
 import { StyleSheet, Dimensions, Platform } from 'react-native';
 import { authTheme } from './authTheme';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
-const CARD_WIDTH = Math.min(width * 0.88, 365);
 const IS_SMALL_HEIGHT = height < 720;
 
 export const forgotPasswordStyles = StyleSheet.create({
@@ -33,7 +32,9 @@ export const forgotPasswordStyles = StyleSheet.create({
   },
 
   card: {
-    width: CARD_WIDTH,
+    // Follows the live window size (rotation, foldables, split screen).
+    width: '92%',
+    maxWidth: 440,
     backgroundColor: authTheme.colors.whiteSoft,
     borderRadius: 22,
     borderWidth: 1,

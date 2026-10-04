@@ -2,9 +2,8 @@
 import { StyleSheet, Dimensions, Platform } from 'react-native';
 import { authTheme } from './authTheme';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
-const CARD_WIDTH = Math.min(width * 0.92, 390);
 const IS_SMALL_HEIGHT = height < 720;
 
 export const profileSetupStyles = StyleSheet.create({
@@ -37,7 +36,9 @@ export const profileSetupStyles = StyleSheet.create({
   },
 
   pageShell: {
-    width: CARD_WIDTH,
+    // Follows the live window size (rotation, foldables, split screen).
+    width: '94%',
+    maxWidth: 560,
   },
 
   loadingScreen: {

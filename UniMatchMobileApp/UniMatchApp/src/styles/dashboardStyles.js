@@ -182,12 +182,16 @@ export const dashboardStyles = StyleSheet.create({
     marginBottom: 11,
   },
 
+  // One per row on phones, side by side on tablets.
   profileGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
 
   miniCard: {
-    width: '100%',
+    flexGrow: 1,
+    flexBasis: 200,
     minHeight: 52,
     borderRadius: 15,
     borderWidth: 1,
@@ -322,13 +326,17 @@ export const dashboardStyles = StyleSheet.create({
     marginBottom: 10,
   },
 
+  // One tile per row on phones, up to 3 on tablets.
   datasetList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 9,
   },
 
   datasetTile: {
     position: 'relative',
-    width: '100%',
+    flexGrow: 1,
+    flexBasis: 220,
     minHeight: 132,
     borderRadius: 20,
     borderWidth: 1,

@@ -21,7 +21,7 @@ const RankingTabs = memo(function RankingTabs({ activeTab, onTabPress }) {
             onPress={() => onTabPress(tab.key)}
           >
             <Text style={styles.tabIcon}>{tab.icon}</Text>
-            <Text style={[styles.tabText, active && styles.tabTextActive]}>
+            <Text style={[styles.tabText, active && styles.tabTextActive]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
               {tab.label}
             </Text>
           </TouchableOpacity>

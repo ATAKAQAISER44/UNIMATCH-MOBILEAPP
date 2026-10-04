@@ -4,6 +4,7 @@
 import React, { memo } from 'react';
 import { View, Text, TouchableOpacity, Image, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { topBarPadding } from '../../utils/safeArea';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -20,7 +21,7 @@ const DashboardTopBar = memo(function DashboardTopBar({ onMenuPress }) {
       colors={authTheme.gradients.button}
       start={{ x: 0, y: 0.5 }}
       end={{ x: 1, y: 0.5 }}
-      style={[styles.topBar, { paddingTop: insets.top + 10 }]}
+      style={[styles.topBar, topBarPadding(insets)]}
     >
       <StatusBar barStyle="light-content" />
       <TouchableOpacity

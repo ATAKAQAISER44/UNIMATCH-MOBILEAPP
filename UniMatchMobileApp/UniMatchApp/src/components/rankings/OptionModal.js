@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   Modal,
 } from 'react-native';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { rankingsStyles as styles } from '../../styles/rankingsStyles';
 
 const OptionModal = memo(function OptionModal({
@@ -22,8 +22,11 @@ const OptionModal = memo(function OptionModal({
   activeColor,
   activeLightColor,
 }) {
+  // Keep the last option above the home indicator / navigation bar.
+  const insets = useSafeAreaInsets();
+
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.bottomSheet}>
           <View style={styles.sheetHandle} />
@@ -61,6 +64,7 @@ const OptionModal = memo(function OptionModal({
               );
             }}
           />
+          <View style={{ height: insets.bottom }} />
         </View>
       </View>
     </Modal>

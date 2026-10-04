@@ -379,7 +379,8 @@ export const myRankingStyles = StyleSheet.create({
     gap: 8,
   },
   smallAction: {
-    width: '48.7%',
+    flexGrow: 1,
+    flexBasis: 130,
     minHeight: 42,
     borderRadius: 15,
     backgroundColor: '#FFFFFF',
@@ -723,6 +724,7 @@ export const myRankingStyles = StyleSheet.create({
   },
   choiceCard: {
     width: '100%',
+    maxWidth: 480,
     maxHeight: '78%',
     borderRadius: 26,
     backgroundColor: '#FFFFFF',
@@ -732,6 +734,7 @@ export const myRankingStyles = StyleSheet.create({
   },
   saveNameCard: {
     width: '100%',
+    maxWidth: 480,
     borderRadius: 26,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -740,6 +743,7 @@ export const myRankingStyles = StyleSheet.create({
   },
   savedModalCard: {
     width: '100%',
+    maxWidth: 520,
     maxHeight: '82%',
     borderRadius: 26,
     backgroundColor: '#FFFFFF',
@@ -749,6 +753,7 @@ export const myRankingStyles = StyleSheet.create({
   },
   infoModalCard: {
     width: '100%',
+    maxWidth: 480,
     borderRadius: 26,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,

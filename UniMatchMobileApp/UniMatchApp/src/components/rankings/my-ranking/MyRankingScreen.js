@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { bottomPadding } from '../../../utils/safeArea';
 
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
@@ -99,6 +101,7 @@ export default function MyRankingScreen({
   handleToggleCompare,
   handleToggleSave,
 }) {
+  const insets = useSafeAreaInsets();
   const toggleBreakdown = useCallback(
     (cardKey) => {
       setOpenBreakdownKey((previous) => (previous === cardKey ? null : cardKey));
@@ -111,8 +114,7 @@ export default function MyRankingScreen({
       showsVerticalScrollIndicator={false}
       contentContainerStyle={[
         styles.listContent,
-        myStyles.myRankingScrollContent,
-        compareList.length > 0 && styles.listContentWithCompareBar,
+        bottomPadding(insets, 120),
       ]}
     >
       <RankingsHero config={config} />

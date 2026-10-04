@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { bottomPadding } from '../../utils/safeArea';
 
 import { supabase } from '../../services/supabase';
 import { authTheme } from '../../styles/authTheme';
@@ -307,6 +308,7 @@ export default function ResearcherLayout({
   isRoot = false,
   keyboardShouldPersistTaps = 'handled',
 }) {
+  const insets = useSafeAreaInsets();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleBack = useCallback(() => {
@@ -333,7 +335,7 @@ export default function ResearcherLayout({
         <ScrollView
           ref={scrollRef}
           style={styles.scroll}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, bottomPadding(insets, 32)]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps={keyboardShouldPersistTaps}
           refreshControl={

@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   alertBox: { borderWidth: 1, borderRadius: 12, padding: 14, marginVertical: 8 },
   alertText: { fontSize: 14, fontWeight: '500', lineHeight: 20 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalSheet: {
+  modalSheet: { width: '100%', maxWidth: 640, alignSelf: 'center',
     backgroundColor: COLORS.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,

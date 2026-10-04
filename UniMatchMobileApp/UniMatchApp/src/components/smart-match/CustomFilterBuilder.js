@@ -606,6 +606,7 @@ const styles = StyleSheet.create({
 
   sheet: {
     width: '92%',
+    maxWidth: 430,
     maxHeight: '70%',
     borderRadius: 28,
     backgroundColor: '#FFFFFF',

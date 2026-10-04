@@ -11,6 +11,7 @@ import {
   Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { topBarPadding } from '../../utils/safeArea';
 
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -27,7 +28,7 @@ const SmartMatchTopBar = memo(function SmartMatchTopBar({ onBackPress }) {
       colors={authTheme.gradients.button}
       start={{ x: 0, y: 0.5 }}
       end={{ x: 1, y: 0.5 }}
-      style={[styles.topBar, { paddingTop: insets.top + 10 }]}
+      style={[styles.topBar, topBarPadding(insets)]}
     >
       <TouchableOpacity
         style={styles.menuButton}

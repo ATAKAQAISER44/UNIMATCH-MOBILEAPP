@@ -252,16 +252,17 @@ export const rankingsStyles = StyleSheet.create({
     fontWeight: '900',
   },
 
+  // 2 per row on phones, 4 on tablets.
   summaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 8,
+    gap: 8,
     marginBottom: 12,
   },
 
   statCard: {
-    width: '48.5%',
+    flexGrow: 1,
+    flexBasis: 140,
     minHeight: 64,
     borderRadius: 15,
     paddingHorizontal: 10,
@@ -691,7 +692,11 @@ export const rankingsStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
 
+  // Full width on phones, centred and capped on tablets.
   bottomSheet: {
+    width: '100%',
+    maxWidth: 640,
+    alignSelf: 'center',
     backgroundColor: colors.whiteSoft,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -702,6 +707,9 @@ export const rankingsStyles = StyleSheet.create({
   },
 
   detailsSheet: {
+    width: '100%',
+    maxWidth: 640,
+    alignSelf: 'center',
     backgroundColor: colors.whiteSoft,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
