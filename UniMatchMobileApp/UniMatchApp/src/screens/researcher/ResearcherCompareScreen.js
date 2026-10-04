@@ -133,8 +133,6 @@ export default function ResearcherCompareScreen({ navigation, route }) {
   const params = route.params || {};
   const datasetKey = resolveDatasetKey(params.dataset);
   const year = resolveYear(params.year, datasetKey);
-  const shortName = RESEARCHER_DATASETS[datasetKey].shortName;
-
   const [availableYears, setAvailableYears] = useState([RESEARCHER_DATASETS[datasetKey].defaultYear]);
   const [metrics, setMetrics] = useState([]);
   const [loadingMeta, setLoadingMeta] = useState(true);
@@ -341,7 +339,7 @@ export default function ResearcherCompareScreen({ navigation, route }) {
     <ResearcherLayout navigation={navigation} activeKey="compare" context={{ dataset: datasetKey, year }}>
       <PageHeader
         title="Compare Universities"
-        subtitle={`Up to ${MAX_SELECTED} universities from one ${shortName} edition, side by side.`}
+        subtitle={`Up to ${MAX_SELECTED}, side by side`}
       />
 
       <DatasetYearBar

@@ -322,7 +322,7 @@ function PasswordStrength({ passwordStrength }) {
 
       <View style={styles.strengthInfoRow}>
         <Text style={styles.passwordHint} numberOfLines={1}>
-          Minimum 8 characters, 1 letter, 1 number, 1 special character.
+          8+ characters with a letter, number and symbol.
         </Text>
 
         {!!passwordStrength.label && (

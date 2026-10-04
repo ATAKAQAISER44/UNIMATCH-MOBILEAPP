@@ -70,10 +70,6 @@ const DashboardHero = memo(function DashboardHero({
           <Image source={LOGO} style={styles.heroLogo} resizeMode="contain" />
         </View>
 
-        <View style={styles.dashboardBadge}>
-          <View style={styles.badgeDot} />
-          <Text style={styles.dashboardBadgeText}>Dashboard</Text>
-        </View>
       </View>
 
       <Text style={styles.welcomeTitle}>
@@ -83,9 +79,6 @@ const DashboardHero = memo(function DashboardHero({
         ) : null}
       </Text>
 
-      <Text style={styles.welcomeDescription}>
-        Your profile is ready. UniMatch recommends a ranking system based on your intended degree level and your top priority.
-      </Text>
 
       <View style={styles.profileGrid}>
         <MiniProfileCard
@@ -98,9 +91,8 @@ const DashboardHero = memo(function DashboardHero({
 
         <MiniProfileCard
           icon="⭐"
-          label="Recommended Ranking System"
+          label="Recommended for you"
           value={recommendedSystem}
-          actionText={`Open ${recommendedSystem}`}
           highlighted
           onPress={onOpenRecommended}
         />

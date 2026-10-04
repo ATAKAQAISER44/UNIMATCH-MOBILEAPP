@@ -16,7 +16,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import RankingsHero from '../RankingsHero';
 import RankingTabs from '../RankingTabs';
-import RankingStats from '../RankingStats';
 
 import { authTheme } from '../../../styles/authTheme';
 import { rankingsStyles as styles } from '../../../styles/rankingsStyles';
@@ -120,30 +119,11 @@ export default function MyRankingScreen({
 
       <RankingTabs activeTab={activeTab} onTabPress={handleTabPress} />
 
-      <RankingStats cards={summaryCards} />
 
-      <View style={myStyles.myHeroCard}>
-        <View style={myStyles.heroBadge}>
-          <Ionicons
-            name="sparkles-outline"
-            size={14}
-            color={authTheme.colors.brandTeal}
-          />
-
-          <Text style={myStyles.heroBadgeText}>Personalized Controls</Text>
-        </View>
-
-        <Text style={myStyles.myHeroTitle}>Build your own ranking</Text>
-
-        <Text style={myStyles.myHeroText}>
-          Choose how much official ranking metrics and practical university attributes should count, then tap Compute My Ranking.
-        </Text>
-      </View>
 
       <View style={myStyles.controlCard}>
         <SectionTitle
-          title="Overall Importance"
-          subtitle="First choose how much official ranking metrics should count in your score."
+          title="What matters more?"
           icon="options-outline"
         />
 
@@ -182,39 +162,21 @@ export default function MyRankingScreen({
         </View>
 
         <Text style={myStyles.hintText}>
-          0% = only university attributes · 100% = only official ranking metrics
+          Left = attributes only · Right = rankings only
         </Text>
       </View>
 
-      {!importanceSelected && (
-        <InfoNotice
-          tone="warning"
-          text="No controls are active yet. Select overall importance first."
-        />
-      )}
-
-      {isRankingOnly && (
-        <InfoNotice text="Ranking metrics are set to 100%, so only official ranking metrics will be used." />
-      )}
-
-      {isAttributeOnly && (
-        <InfoNotice text="University attributes are set to 100%, so only university attributes will be used." />
-      )}
-
-      {isMixed && (
-        <InfoNotice text="You chose a mix, so you can adjust both ranking metrics and university attributes." />
-      )}
+      {!importanceSelected && <InfoNotice tone="warning" text="Move the slider to start." />}
 
       {showRankingSection && (
         <CollapsibleWeightCard
-          title="Ranking Metric Weights"
-          subtitle="Official ranking indicators from QS, THE, or ARWU."
+          title="Ranking metrics"
           icon="podium-outline"
           count={visibleRankingItems.length}
           open={rankingWeightsOpen}
           onToggle={() => setRankingWeightsOpen((previous) => !previous)}
           onInfoPress={() => openInfo('ranking')}
-          emptyText="No ranking metric added yet. Add at least one ranking metric."
+          emptyText="Add at least one metric."
           items={visibleRankingItems}
           weights={rankingWeights}
           onChange={updateRankingWeight}
@@ -244,14 +206,13 @@ export default function MyRankingScreen({
 
       {showAttributeSection && (
         <CollapsibleWeightCard
-          title="University Attribute Weights"
-          subtitle="Student-focused factors from the attributes dataset."
+          title="University attributes"
           icon="school-outline"
           count={visibleAttributeItems.length}
           open={attributeWeightsOpen}
           onToggle={() => setAttributeWeightsOpen((previous) => !previous)}
           onInfoPress={() => openInfo('attributes')}
-          emptyText="No university attribute added yet. Add at least one university attribute."
+          emptyText="Add at least one attribute."
           items={visibleAttributeItems}
           weights={attributeWeights}
           onChange={updateAttributeWeight}
@@ -355,12 +316,10 @@ export default function MyRankingScreen({
 
       <View style={myStyles.resultsHeaderCard}>
         <View>
-          <Text style={myStyles.resultsTitle}>My Ranking Results</Text>
-          <Text style={myStyles.resultsSub}>
-            {myResults.length
-              ? `Your top ${myResults.length} universities based on your preferences`
-              : 'Your results will appear here after you tap Compute My Ranking'}
-          </Text>
+          <Text style={myStyles.resultsTitle}>My Ranking</Text>
+          {myResults.length ? (
+            <Text style={myStyles.resultsSub}>{myResults.length} universities</Text>
+          ) : null}
         </View>
 
         {myResults.length ? (
@@ -389,11 +348,7 @@ export default function MyRankingScreen({
             color={authTheme.colors.brandTeal}
           />
 
-          <Text style={myStyles.emptyMyTitle}>No ranking generated yet</Text>
-
-          <Text style={myStyles.emptyMyText}>
-            Tap Compute My Ranking to see your personalised list.
-          </Text>
+          <Text style={myStyles.emptyMyTitle}>Tap Compute My Ranking</Text>
         </View>
       ) : null}
 

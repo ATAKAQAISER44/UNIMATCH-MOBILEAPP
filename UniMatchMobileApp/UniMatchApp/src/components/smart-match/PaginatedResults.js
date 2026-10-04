@@ -127,9 +127,6 @@ function EmptyState() {
     <View style={styles.stateBox}>
       <Text style={styles.stateIcon}>🎓</Text>
       <Text style={styles.stateTitle}>No results yet</Text>
-      <Text style={styles.stateText}>
-        Run Profile Match or apply Custom Explore filters to see universities.
-      </Text>
     </View>
   );
 }
@@ -324,8 +321,7 @@ export default function PaginatedResults({
           )}
 
           <Text style={styles.countText}>
-            Showing {start + 1}–{Math.min(end, safeUniversities.length)} of{' '}
-            {safeUniversities.length} results
+            {start + 1}–{Math.min(end, safeUniversities.length)} of {safeUniversities.length}
           </Text>
         </View>
       )}

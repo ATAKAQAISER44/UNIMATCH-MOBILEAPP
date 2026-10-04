@@ -8,7 +8,7 @@ export const DATASETS = [
     shortTitle: 'QS Rankings',
     title: 'QS World University Rankings',
     description:
-      'Best for career focus, employability, global reputation, and international exposure.',
+      'Reputation, employability, international mix.',
     features: ['Career Focus', 'Employability'],
     color: '#F59E0B',
     lightColor: '#FFF7ED',
@@ -19,7 +19,7 @@ export const DATASETS = [
     shortTitle: 'THE Rankings',
     title: 'Times Higher Education',
     description:
-      'Useful for balanced comparison, teaching quality, research environment, and academic strength.',
+      'Teaching, research and citations.',
     features: ['Teaching Quality', 'Research'],
     color: '#14B8A6',
     lightColor: '#ECFDF5',
@@ -30,7 +30,7 @@ export const DATASETS = [
     shortTitle: 'ARWU Rankings',
     title: 'Shanghai / ARWU',
     description:
-      'Research-oriented ranking for academic output, awards, publications, and PhD research focus.',
+      'Research output, awards and publications.',
     features: ['Research Output', 'Publications'],
     color: '#F43F5E',
     lightColor: '#FFF1F2',

@@ -439,9 +439,6 @@ function ProfileHeaderCard({
               {profile?.full_name || 'UniMatch User'}
             </Text>
 
-            <Text style={styles.profileSubtitle}>
-              Your saved academic, location, financial and ranking preferences.
-            </Text>
           </View>
         </View>
 

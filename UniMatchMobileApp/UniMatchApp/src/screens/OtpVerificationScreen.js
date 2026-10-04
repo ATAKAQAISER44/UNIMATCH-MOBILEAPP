@@ -38,7 +38,7 @@ function OtpHeader({ email }) {
       <Text style={styles.headline}>Verify Code</Text>
 
       <Text style={styles.subtitle}>
-        Enter the 8-digit verification code we sent to your email.
+        {email ? 'Enter the 8-digit code sent to' : 'Enter the 8-digit code from your email.'}
       </Text>
 
       {!!email && <Text style={styles.emailText}>{email}</Text>}

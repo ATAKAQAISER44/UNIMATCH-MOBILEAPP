@@ -82,10 +82,10 @@ export default function SavedExperimentsPanel({ experiments, activeId, onLoad, o
     <Card>
       <SectionHeading
         title="Saved experiments"
-        subtitle="Stored on this phone. Load opens the Weights tab with the experiment's weights."
+        subtitle="Stored on this phone"
       />
       {experiments.length === 0 ? (
-        <EmptyState text='Nothing saved yet. In the Weights tab, set weights and tap "Save as experiment".'>
+        <EmptyState text="Nothing saved yet.">
           {onCreate ? <OutlineButton title="Go to Weights" small onPress={onCreate} style={{ marginTop: 10 }} /> : null}
         </EmptyState>
       ) : (
@@ -116,15 +116,7 @@ export default function SavedExperimentsPanel({ experiments, activeId, onLoad, o
                   “{experiment.note}”
                 </Text>
               )}
-              {experiment.summary?.length > 0 && (
-                <Text style={[styles.mutedText, { marginTop: 3, fontSize: 11 }]}>
-                  Top result: {experiment.summary.map((row) => `#${row.rank} ${row.name}`).join(', ')}
-                </Text>
-              )}
-              <Text style={[styles.noteText, { marginTop: 4 }]}>
-                Saved {formatExperimentDate(experiment.createdAt)} · stability ±
-                {Math.round((experiment.variation ?? 0.2) * 100)}%
-              </Text>
+              <Text style={[styles.noteText, { marginTop: 4 }]}>{formatExperimentDate(experiment.createdAt)}</Text>
 
               <View style={[styles.buttonRow, { marginTop: 9 }]}>
                 <GradientButton title={isActive ? 'Reload' : 'Load'} small onPress={() => onLoad(experiment)} />

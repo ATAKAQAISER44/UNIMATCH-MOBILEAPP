@@ -194,7 +194,7 @@ export default function ResearcherAttributesScreen({ navigation }) {
         setReloadKey((value) => value + 1);
       }}
     >
-      <PageHeader title="Attributes Explorer" subtitle="Fees, living cost, scholarships and admission for each university." />
+      <PageHeader title="Attributes Explorer" subtitle="Fees, scholarships and admission" />
 
       <Card>
         <SearchInput value={search} onChangeText={changeFilter(setSearch)} placeholder="Search university or country..." />

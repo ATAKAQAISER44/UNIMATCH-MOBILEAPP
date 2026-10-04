@@ -15,18 +15,12 @@ const RankingTableHeader = memo(function RankingTableHeader({
   return (
     <View style={styles.tableIntro}>
       <View style={styles.tableTitleRow}>
-        <View style={styles.tableCheckBox}>
-          <Text style={styles.tableCheck}>✓</Text>
-        </View>
-
         <Text style={styles.tableTitle}>{title}</Text>
       </View>
 
       <Text style={styles.tableMeta}>
-        Page <Text style={styles.metaStrong}>{page}</Text> of{' '}
-        <Text style={styles.metaStrong}>{totalPages}</Text>
-        {'  |  '}
-        Total results: <Text style={styles.metaStrong}>{totalResults}</Text>
+        <Text style={styles.metaStrong}>{totalResults}</Text> universities
+        {totalPages > 1 ? ` · page ${page} of ${totalPages}` : ''}
       </Text>
     </View>
   );

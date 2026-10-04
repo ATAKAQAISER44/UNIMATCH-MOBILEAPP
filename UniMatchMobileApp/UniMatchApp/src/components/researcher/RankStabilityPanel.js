@@ -30,7 +30,7 @@ import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { authTheme } from '../../styles/authTheme';
 import { runRankStability } from '../../services/researcherApi';
 import { shareCSV } from '../../utils/researcherExport';
-import { VERDICTS, buildStabilityFindings, describeRow } from '../../utils/researchInsights';
+import { VERDICTS, buildStabilityFindings } from '../../utils/researchInsights';
 
 const PAGE_SIZE = 20;
 // Wait briefly so quick taps / slider moves start only one test.
@@ -43,23 +43,14 @@ const VARIATIONS = [
 ];
 
 const SORTS = [
-  { value: 'rank', label: 'Sort by rank' },
+  { value: 'rank', label: 'By rank' },
   { value: 'movement', label: 'Most movement' },
 ];
 
 const STEPS = [
-  [
-    'Nobody knows the perfect weight',
-    "You may give Academic Reputation 30%. But 27% or 33% would be just as reasonable. Small choices like this should not decide a university's rank.",
-  ],
-  [
-    'Try many slightly different weights',
-    'The test changes every weight a little at random (e.g. 30% becomes 27% or 33%) and builds the ranking again — 500 times.',
-  ],
-  [
-    'See how much each rank moves',
-    'If a university stays around the same place every time, its rank is stable and trustworthy. If it jumps around, its rank depends on the exact weights.',
-  ],
+  ['Nudge the weights', 'Every weight is changed a little at random (e.g. 30% → 27% or 33%).'],
+  ['Re-rank 500 times', 'The ranking is rebuilt for each set of weights.'],
+  ['Measure the movement', 'Ranks that barely move are stable; big jumps mean the rank depends on exact weights.'],
 ];
 
 function VerdictPill({ verdict }) {
@@ -230,7 +221,7 @@ export default function RankStabilityPanel({
       <Card>
         <SectionHeading
           title="Rank stability"
-          subtitle="Would ranks change if your weights were slightly different? Uses the weights from the Weights tab."
+          subtitle="Do ranks hold if your weights change a little?"
           right={stability && !running ? <OutlineButton title="CSV" small onPress={exportResults} /> : null}
         />
 
@@ -275,7 +266,6 @@ export default function RankStabilityPanel({
               >
                 <Text style={[styles.statValue, { color: verdict.colors.text }]}>{stability.verdict_counts[key]}</Text>
                 <Text style={[styles.statLabel, { color: verdict.colors.text }]}>{verdict.label}</Text>
-                <Text style={[styles.statHint, { textAlign: 'center' }]}>{verdict.meaning}</Text>
               </View>
             ))}
           </View>
@@ -288,7 +278,7 @@ export default function RankStabilityPanel({
           <Card>
             <SectionHeading
               title={`All ${stability.results.length} universities`}
-              subtitle={`${stability.runs} tests, each weight ±${Math.round(stability.variation * 100)}%. "Usual range" = rank in 90% of tests.`}
+              subtitle={`Usual range = rank in 90% of ${stability.runs} tests`}
             />
             <SegmentedControl
               options={SORTS}
@@ -326,7 +316,6 @@ export default function RankStabilityPanel({
 
                 <MoveBar up={row.rank - row.range_low} down={row.range_high - row.rank} max={maxMove} />
 
-                <Text style={[styles.mutedText, { marginTop: 6 }]}>{describeRow(row, stability.runs)}</Text>
               </View>
             ))}
 
@@ -337,7 +326,7 @@ export default function RankStabilityPanel({
             <Card>
               <SectionHeading
                 title="Which weight matters most"
-                subtitle={`Average places moved when only that weight changes by ±${Math.round(stability.variation * 100)}%. Longer bar = choose it more carefully.`}
+                subtitle="Average places moved when only that weight changes"
               />
               {stability.indicator_impact.map((item) => (
                 <View key={item.key} style={{ marginBottom: 9 }}>
@@ -354,10 +343,7 @@ export default function RankStabilityPanel({
           )}
 
           <Text style={[styles.noteText, { marginBottom: 8 }]}>
-            Method: Monte Carlo sensitivity analysis — {stability.runs} runs, each weight multiplied by a random factor
-            between {Number((1 - stability.variation).toFixed(2))} and {Number((1 + stability.variation).toFixed(2))} and the
-            weights re-scaled to 100%. "Usual range" is the 5th–95th percentile of the ranks. Fixed random seed (
-            {stability.seed}), so the same weights always give the same result.
+            Monte Carlo, {stability.runs} runs, fixed seed {stability.seed}. Usual range = 5th–95th percentile.
           </Text>
         </View>
       )}

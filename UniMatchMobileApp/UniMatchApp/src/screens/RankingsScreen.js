@@ -1374,13 +1374,7 @@ export default function RankingsScreen({ route = {}, navigation }) {
                   exporting={exporting}
                 />
               ) : (
-                <View style={styles.savedInfoCard}>
-                  <Text style={styles.savedInfoTitle}>Saved Universities</Text>
-                  <Text style={styles.savedInfoText}>
-                    Universities you save will appear here. Tap the star again
-                    to remove any university from this list.
-                  </Text>
-                </View>
+                <View style={{ height: 4 }} />
               )}
 
               <RankingTableHeader
@@ -1420,9 +1414,9 @@ export default function RankingsScreen({ route = {}, navigation }) {
 
                 <Text style={styles.emptyText}>
                   {activeTab === 'saved'
-                    ? 'Tap the star on any university to save it here.'
+                    ? 'Tap ☆ on a university to save it.'
                     : rankingError ||
-                      'Try a different search term or choose another country.'}
+                      'Try another search or country.'}
                 </Text>
               </View>
             ) : null

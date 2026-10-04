@@ -188,23 +188,15 @@ export const INFO_CONTENT = {
     title: 'What are Ranking Metrics?',
     icon: 'podium-outline',
     body:
-      'Ranking metrics are the official indicators used by QS, THE, or ARWU. Examples include academic reputation, employer reputation, teaching, research, citations, alumni, publications, and other dataset-specific indicators.',
-    points: [
-      'These metrics keep your personalised ranking based on the official ranking data.',
-      'A higher weight gives that metric more influence on your My Ranking score.',
-      'Only the metrics you add are used. Removed metrics do not affect your score.',
-    ],
+      'The official scores QS, THE or ARWU use, such as reputation, research and citations.',
+    points: ['Higher weight = more influence.', 'Only the metrics you add are used.'],
   },
 
   attributes: {
     title: 'What are University Attributes?',
     icon: 'school-outline',
     body:
-      'University attributes are practical student-focused factors collected separately, such as tuition fee, living cost, scholarships, CGPA eligibility, tests, internships, employability, country, region, and language.',
-    points: [
-      'These attributes help personalize rankings according to student needs.',
-      'A higher weight gives that attribute more influence on your My Ranking score.',
-      'Only the attributes you add are used. Removed attributes do not affect your score.',
-    ],
+      'Practical factors such as fees, living cost, scholarships and CGPA requirement.',
+    points: ['Higher weight = more influence.', 'Only the attributes you add are used.'],
   },
 };

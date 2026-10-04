@@ -32,8 +32,7 @@ function ForgotPasswordHeader() {
       <Text style={styles.headline}>Forgot Password?</Text>
 
       <Text style={styles.subtitle}>
-        Enter your email address and we will send you an OTP to reset your
-        password.
+        We'll email you a reset code.
       </Text>
     </View>
   );

@@ -25,28 +25,28 @@ const logo = require('../../assets/images/icon.png');
 const ROLES = [
   {
     title: 'Student',
-    description: 'Discover personalized university rankings based on your academic profile.',
+    description: 'Find universities that fit your profile.',
     icon: '🎓',
     color: authTheme.colors.brandTeal,
     light: authTheme.colors.brandMintDeep,
   },
   {
     title: 'Researcher',
-    description: 'Explore institutions based on research strength, innovation, and impact.',
+    description: 'Explore and analyse ranking data.',
     icon: '🔬',
     color: '#0D9488',
     light: '#ECFDF5',
   },
   {
     title: 'Policymaker',
-    description: 'Analyze university patterns and comparative insights for planning.',
+    description: 'Compare universities and trends.',
     icon: '📊',
     color: '#10B981',
     light: '#ECFDF5',
   },
   {
     title: 'University Administrator',
-    description: 'Evaluate rankings and institutional standing from an academic view.',
+    description: 'Review rankings and standing.',
     icon: '🏫',
     color: '#059669',
     light: '#ECFDF5',
@@ -60,17 +60,10 @@ function HeaderCard() {
         <Image source={logo} style={styles.logoImage} resizeMode="contain" />
       </View>
 
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>Step 1 of Onboarding</Text>
-      </View>
-
       <Text style={styles.headline}>
         Choose your <Text style={styles.highlightText}>UniMatch</Text> role
       </Text>
 
-      <Text style={styles.subtitle}>
-        Tell us who you are so UniMatch can tailor your setup and rankings to you.
-      </Text>
     </View>
   );
 }

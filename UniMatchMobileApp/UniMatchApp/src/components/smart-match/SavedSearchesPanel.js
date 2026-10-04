@@ -134,16 +134,8 @@ export default function SavedSearchesPanel({
   return (
     <View style={styles.savedCard}>
       <View style={styles.savedHeader}>
-        <View style={styles.badgePill}>
-          <View style={styles.badgeDot} />
-          <Text style={styles.badgePillText}>Saved Filters</Text>
-        </View>
-
         <Text style={styles.bigTitle}>Saved Searches</Text>
 
-        <Text style={styles.cardSubtitle}>
-          Bookmark useful custom filter combinations and reuse them later.
-        </Text>
       </View>
 
       <View style={styles.list}>

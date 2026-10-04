@@ -255,9 +255,9 @@ export function buildStabilityFindings(stability, labelFor) {
     {
       tone: steady >= rows.length * 0.7 ? "good" : "warning",
       title: "Overall",
-      text: `${steady} of the top ${rows.length} universities keep a stable rank when the weights change a little. ${
+      text: `${steady} of ${rows.length} universities keep a stable rank. ${
         counts.sensitive + counts.very_sensitive
-      } depend noticeably on the exact weights.`,
+      } depend on the exact weights.`,
     },
   ];
 

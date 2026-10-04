@@ -6,7 +6,6 @@ import { View, Text, StyleSheet } from 'react-native';
 
 import { SCHOLARSHIP_OPTIONS } from '../../constants';
 import { SelectField } from '../../components';
-import { profileSetupStyles as styles } from '../../styles/profileSetupStyles';
 import { authTheme } from '../../styles/authTheme';
 import { sanitizeNonNegative } from '../../utils/profileSetupUtils';
 
@@ -92,11 +91,6 @@ export default function TuitionFeeStep({
         }
       />
 
-      <View style={styles.infoBox}>
-        <Text style={styles.infoText}>
-          Accurate budget values help UniMatch recommend affordable universities.
-        </Text>
-      </View>
     </>
   );
 }

@@ -220,7 +220,7 @@ export default function UniversityScreen({ navigation, route }) {
         ) : (
           <>
             <Card>
-              <SectionHeading title="World rankings" subtitle="Latest edition in each ranking system. Tap one to see past years." />
+              <SectionHeading title="World rankings" />
               {rankSummaries.length === 0 ? (
                 <Text style={styles.mutedText}>Not listed in QS, THE or ARWU.</Text>
               ) : (

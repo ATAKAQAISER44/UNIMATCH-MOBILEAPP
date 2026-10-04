@@ -281,7 +281,7 @@ export default function ResearcherDatasetScreen({ navigation, route }) {
         setReloadKey((value) => value + 1);
       }}
     >
-      <PageHeader title={`${datasetInfo.title} ${year}`} subtitle={datasetInfo.description} />
+      <PageHeader title={`${datasetInfo.title} ${year}`} />
 
       <DatasetYearBar
         datasetKey={datasetKey}
@@ -375,7 +375,7 @@ export default function ResearcherDatasetScreen({ navigation, route }) {
 
       <Card>
         <SectionHeading title={`How ${RESEARCHER_METHODOLOGY[datasetKey].title} is calculated`} />
-        <MethodologyPanel datasetKey={datasetKey} />
+        <MethodologyPanel datasetKey={datasetKey} showDescription={false} />
       </Card>
     </ResearcherLayout>
   );

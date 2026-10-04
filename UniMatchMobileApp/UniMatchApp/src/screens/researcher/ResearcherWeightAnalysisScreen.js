@@ -408,7 +408,7 @@ export default function ResearcherWeightAnalysisScreen({ navigation, route }) {
     >
       <PageHeader
         title="Weight Analysis"
-        subtitle="Change how much each indicator counts and see how the ranking shifts."
+        subtitle="Change indicator weights, see new ranks."
       />
 
       <SegmentedControl options={tabs} value={tab} onChange={changeTab} />
@@ -437,7 +437,7 @@ export default function ResearcherWeightAnalysisScreen({ navigation, route }) {
               subtitle={
                 activeExperiment
                   ? `Experiment: ${activeExperiment.name}${experimentModified ? ' (edited, not saved)' : ''}`
-                  : `${shortName}'s published weights. % = share of the total.`
+                  : `${shortName} official weights`
               }
               right={<OutlineButton title="Reset" small onPress={resetWeights} disabled={loading} />}
             />
@@ -476,10 +476,6 @@ export default function ResearcherWeightAnalysisScreen({ navigation, route }) {
             ) : (
               <View style={[styles.finding, { marginTop: 4, borderColor: authTheme.colors.brandBorder, backgroundColor: '#F3FBF8' }]}>
                 <Text style={styles.findingTitle}>Save experiment</Text>
-                <Text style={[styles.mutedText, { marginBottom: 8 }]}>
-                  Keeps {shortName} {year}, these weights and the stability setting (±{Math.round(variation * 100)}%).
-                </Text>
-
                 <Text style={styles.label}>Name *</Text>
                 <TextInput
                   value={saveName}
@@ -529,8 +525,8 @@ export default function ResearcherWeightAnalysisScreen({ navigation, route }) {
               title="New ranking"
               subtitle={
                 results.length
-                  ? `${results.length} universities · ▲ = moved up vs the official rank`
-                  : 'Updates automatically when you change a weight.'
+                  ? `${results.length} universities · vs official rank`
+                  : undefined
               }
               right={results.length ? <OutlineButton title="CSV" small onPress={exportResults} /> : null}
             />

@@ -122,9 +122,6 @@ export default function CustomFilterBuilder({
         <View style={styles.headerTextBlock}>
           <Text style={styles.title}>Custom Filters</Text>
 
-          <Text style={styles.subtitle}>
-            Add  your custom filters here.
-          </Text>
         </View>
 
         <TouchableOpacity
@@ -149,11 +146,8 @@ export default function CustomFilterBuilder({
             <Text style={styles.emptyIcon}>🔎</Text>
           </View>
 
-          <Text style={styles.emptyTitle}>No custom filters added yet</Text>
+          <Text style={styles.emptyTitle}>No filters yet — tap + Add</Text>
 
-          <Text style={styles.emptyText}>
-            Tap Add to create your first filter.
-          </Text>
         </View>
       )}
 

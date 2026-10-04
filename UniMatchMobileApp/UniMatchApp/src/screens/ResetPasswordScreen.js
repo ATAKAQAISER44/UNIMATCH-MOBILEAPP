@@ -112,9 +112,6 @@ function ScreenHeader() {
 
       <Text style={styles.headline}>Create New Password</Text>
 
-      <Text style={styles.subtitle}>
-        Your new password must be strong and different from the old one.
-      </Text>
     </View>
   );
 }
@@ -245,8 +242,7 @@ export default function ResetPasswordScreen({ navigation }) {
             />
 
             <Text style={styles.passwordHint}>
-              Password must contain at least 8 characters, one letter, one
-              number, and one special character.
+              8+ characters with a letter, number and symbol.
             </Text>
 
             <TouchableOpacity

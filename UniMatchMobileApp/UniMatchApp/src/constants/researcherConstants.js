@@ -11,7 +11,7 @@ export const RESEARCHER_DATASETS = {
     title: 'QS World University Rankings',
     description: 'Explore QS universities, indicators and ranking editions.',
     dashboardDescription:
-      'Explore QS universities, official ranks, countries, indicators, and ranking methodology.',
+      'Universities, ranks and indicators.',
     defaultYear: 2027,
     color: '#008C8C',
     logo: require('../../assets/images/logos/qs.png'),
@@ -22,7 +22,7 @@ export const RESEARCHER_DATASETS = {
     title: 'Times Higher Education Rankings',
     description: 'Explore universities and indicators from the THE dataset.',
     dashboardDescription:
-      'Explore THE universities, official ranks, countries, indicators, and ranking methodology.',
+      'Universities, ranks and indicators.',
     defaultYear: 2024,
     color: '#55B947',
     logo: require('../../assets/images/logos/the.png'),
@@ -33,7 +33,7 @@ export const RESEARCHER_DATASETS = {
     title: 'Academic Ranking of World Universities',
     description: 'Explore universities and indicators from the ARWU dataset.',
     dashboardDescription:
-      'Explore ARWU universities, official ranks, countries, indicators, and ranking methodology.',
+      'Universities, ranks and indicators.',
     defaultYear: 2025,
     color: '#F59E0B',
     logo: require('../../assets/images/logos/arwu.jpg'),

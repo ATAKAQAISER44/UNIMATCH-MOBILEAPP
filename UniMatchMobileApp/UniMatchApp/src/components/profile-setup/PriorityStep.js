@@ -19,7 +19,7 @@ export default function PriorityStep({
     <>
       <View style={styles.infoBox}>
         <Text style={styles.infoText}>
-          Priority 1 is required. It has the biggest influence on which ranking system UniMatch recommends for you.
+          Priority 1 is required and counts the most.
         </Text>
       </View>
 

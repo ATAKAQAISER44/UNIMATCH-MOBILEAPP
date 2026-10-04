@@ -171,7 +171,7 @@ export default function ResearcherDatasetComparisonScreen({ navigation }) {
     >
       <PageHeader
         title="Dataset Comparison"
-        subtitle="Search a university to see its position in QS, THE and ARWU."
+        subtitle="QS, THE and ARWU side by side"
       />
 
       <Card>
@@ -181,7 +181,7 @@ export default function ResearcherDatasetComparisonScreen({ navigation }) {
 
       {!!searchKey && (
         <Card>
-          <SectionHeading title="Position in each ranking" subtitle="First match in each edition. Tap a row to open its list." />
+          <SectionHeading title="Position in each ranking" />
           {RESEARCHER_DATASET_KEYS.map((key) => {
             const column = columns[key];
             const match = column.rows.find((row) => row.name?.toLowerCase().includes(searchKey)) || column.rows[0];
@@ -235,7 +235,7 @@ export default function ResearcherDatasetComparisonScreen({ navigation }) {
               <Dot color={RESEARCHER_DATASETS[key].color} />
               <Text style={styles.rowName}>{RESEARCHER_METHODOLOGY[key].title}</Text>
             </View>
-            <MethodologyPanel datasetKey={key} />
+            <MethodologyPanel datasetKey={key} showDescription={false} />
           </View>
         ))}
       </CollapsibleCard>

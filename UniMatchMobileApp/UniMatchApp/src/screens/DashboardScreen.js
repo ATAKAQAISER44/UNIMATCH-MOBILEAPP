@@ -67,7 +67,7 @@ export default function DashboardScreen({ navigation }) {
   const setDefaultRecommendation = useCallback(() => {
     updateRecommendationState(
       DEFAULT_RECOMMENDED_DATASET,
-      'Showing THE by default because your personalised recommendation could not be loaded right now. Pull down to try again.'
+      'Showing THE for now. Pull down to retry.'
     );
   }, [updateRecommendationState]);
 

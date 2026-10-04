@@ -613,12 +613,6 @@ export default function CustomExplorePanel({
             ) : null}
           </View>
 
-          {!hasResults ? (
-            <Text style={styles.cardSubtitle}>
-              Universities matching your filters
-            </Text>
-          ) : null}
-
           <View style={styles.resultsBox}>
             <PaginatedResults
               title=""

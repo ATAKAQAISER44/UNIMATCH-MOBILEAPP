@@ -45,8 +45,7 @@ export default function LocationStep({
 
       <View style={styles.infoBox}>
         <Text style={styles.infoText}>
-          If no country is selected, all countries in the selected region will be
-          considered.
+          No country = whole region.
         </Text>
       </View>
     </>

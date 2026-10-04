@@ -41,8 +41,8 @@ import { shareCSV } from '../../utils/researcherExport';
 import { HIGH_MISSING_PCT, buildSummaryFindings, interpretRow } from '../../utils/researchInsights';
 
 const VIEWS = [
-  { value: 'summary', label: 'Summary', hint: 'average, middle, missing' },
-  { value: 'relationships', label: 'Relationships', hint: 'which go together' },
+  { value: 'summary', label: 'Summary' },
+  { value: 'relationships', label: 'Relationships' },
 ];
 
 function MissingBar({ missing, pct }) {
@@ -68,7 +68,7 @@ function SpreadBar({ row }) {
 
   return (
     <View style={{ marginTop: 10 }}>
-      <Text style={styles.kvLabel}>Score range ( | = middle value   ● = average )</Text>
+      <Text style={styles.kvLabel}>Range  ·  | median  ·  ● mean</Text>
       <View style={{ height: 18, justifyContent: 'center', marginTop: 4, marginHorizontal: 6 }}>
         <View style={{ height: 8, borderRadius: 999, backgroundColor: '#CDEFE4' }} />
         {median != null && (
@@ -110,22 +110,22 @@ function SpreadBar({ row }) {
 function IndicatorCard({ row }) {
   const meaning = interpretRow(row);
   const items = [
-    ['Average (mean)', row.mean],
-    ['Middle value (median)', row.median],
-    ['Lowest (min)', row.min],
-    ['Highest (max)', row.max],
-    ['Spread (std dev)', row.std],
+    ['Mean', row.mean],
+    ['Median', row.median],
+    ['Lowest', row.min],
+    ['Highest', row.max],
+    ['Std dev', row.std],
   ];
 
   return (
     <View style={[styles.rowCard, row.isOverall && styles.rowCardActive]}>
       <View style={styles.rowBetween}>
         <Text style={[styles.rowName, styles.flex1]}>{row.label}</Text>
-        <Text style={styles.rowScoreLabel}>{row.available} have a score</Text>
+        <Text style={styles.rowScoreLabel}>{row.available} scored</Text>
       </View>
 
       <View style={{ marginTop: 8 }}>
-        <Text style={styles.kvLabel}>No score (value not published)</Text>
+        <Text style={styles.kvLabel}>Missing</Text>
         <MissingBar missing={row.missing} pct={row.missing_pct} />
       </View>
 
@@ -151,16 +151,18 @@ function IndicatorCard({ row }) {
         </>
       ) : null}
 
-      <Text
-        style={[
-          styles.bodyText,
-          { marginTop: 9, fontSize: 12 },
-          meaning.tone === 'warning' && { color: '#B45309', fontWeight: '700' },
-          meaning.tone === 'muted' && { color: '#94A3B8' },
-        ]}
-      >
-        {meaning.text}
-      </Text>
+      {meaning.tone === 'warning' || meaning.tone === 'muted' ? (
+        <Text
+          style={[
+            styles.bodyText,
+            { marginTop: 9, fontSize: 12 },
+            meaning.tone === 'warning' && { color: '#B45309', fontWeight: '700' },
+            meaning.tone === 'muted' && { color: '#94A3B8' },
+          ]}
+        >
+          {meaning.text}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -360,10 +362,7 @@ export default function ResearcherStatisticsScreen({ navigation, route }) {
         setReloadKey((value) => value + 1);
       }}
     >
-      <PageHeader
-        title={`Statistics · ${datasetInfo.shortName} ${year}`}
-        subtitle="Every indicator summarised, and which indicators move together."
-      />
+      <PageHeader title={`Statistics · ${datasetInfo.shortName} ${year}`} />
 
       <DatasetYearBar
         datasetKey={datasetKey}
@@ -410,12 +409,11 @@ export default function ResearcherStatisticsScreen({ navigation, route }) {
         <>
           <StatGrid
             items={[
-              { label: 'Universities', hint: 'in this selection', value: stats?.total_universities ?? '-' },
-              { label: 'Indicators', hint: 'scores the ranking is built from', value: stats?.indicators?.length ?? '-' },
-              { label: 'Indicators with gaps', hint: 'some universities have no score', value: stats ? indicatorsWithMissing : '-' },
+              { label: 'Universities', value: stats?.total_universities ?? '-' },
+              { label: 'Indicators', value: stats?.indicators?.length ?? '-' },
+              { label: 'With gaps', value: stats ? indicatorsWithMissing : '-' },
               {
-                label: 'Exact overall scores',
-                hint: 'the rest are missing or a range',
+                label: 'Overall scores',
                 value: stats?.overall ? `${stats.overall.available} / ${stats.overall.total}` : '-',
               },
             ]}

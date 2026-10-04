@@ -60,14 +60,6 @@ const DatasetTile = memo(function DatasetTile({
       <Text style={styles.datasetTitle}>{dataset.shortTitle}</Text>
       <Text style={styles.datasetDescription}>{dataset.description}</Text>
 
-      <View style={styles.featureRow}>
-        {dataset.features.map((feature) => (
-          <View key={feature} style={styles.featurePill}>
-            <Text style={styles.featureText}>{feature}</Text>
-          </View>
-        ))}
-      </View>
-
       <Text style={styles.openText}>Open →</Text>
     </TouchableOpacity>
   );
@@ -79,11 +71,7 @@ const DatasetSection = memo(function DatasetSection({
 }) {
   return (
     <View style={styles.datasetSection}>
-      <Text style={styles.sectionTitle}>Explore Ranking Systems</Text>
-
-      <Text style={styles.sectionSubtitle}>
-        Choose a ranking system to view its official rankings and university details.
-      </Text>
+      <Text style={styles.sectionTitle}>Ranking systems</Text>
 
       <View style={styles.datasetList}>
         {DATASETS.map((dataset) => (

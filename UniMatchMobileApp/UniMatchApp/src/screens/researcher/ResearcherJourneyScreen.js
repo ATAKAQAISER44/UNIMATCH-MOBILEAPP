@@ -270,7 +270,7 @@ export default function ResearcherJourneyScreen({ navigation }) {
 
   return (
     <ResearcherLayout navigation={navigation} activeKey="journey">
-      <PageHeader title="University Journey" subtitle="How a university's rank moved across QS, THE and ARWU editions." />
+      <PageHeader title="University Journey" subtitle="Rank over the years" />
 
       <Card>
         <SearchInput

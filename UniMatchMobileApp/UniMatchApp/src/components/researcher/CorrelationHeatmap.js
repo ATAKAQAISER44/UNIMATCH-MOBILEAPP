@@ -187,7 +187,7 @@ export default function CorrelationHeatmap({ correlation, labelFor, overallKey, 
       <Card>
         <SectionHeading
           title="Heatmap"
-          subtitle="Tap a box to see what it means. Swipe sideways for more."
+          subtitle="Tap a box for details"
         />
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>

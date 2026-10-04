@@ -235,7 +235,7 @@ export default function ResearcherReportScreen({ navigation, route }) {
     <ResearcherLayout navigation={navigation} activeKey="report">
       <PageHeader
         title="Research Report"
-        subtitle="A full write-up of one saved experiment. Choose it below; share as PDF or CSV."
+        subtitle="Full write-up of a saved experiment"
       />
 
       {experiments === null ? (

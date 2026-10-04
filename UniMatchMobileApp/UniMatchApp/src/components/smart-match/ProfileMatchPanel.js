@@ -744,8 +744,7 @@ export default function ProfileMatchPanel({
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View>
-              <Text style={styles.cardTitle}>Smart Profile</Text>
-              <Text style={styles.cardSubtitle}>Build your preferences</Text>
+              <Text style={styles.cardTitle}>Your preferences</Text>
             </View>
           </View>
 
@@ -925,12 +924,8 @@ export default function ProfileMatchPanel({
 
           <View style={styles.resultsWrapper}>
             <PaginatedResults
-              title={hasResults ? '' : 'Profile Match Results'}
-              description={
-                hasResults
-                  ? ''
-                  : 'These universities are selected using your profile'
-              }
+              title=""
+              description=""
               universities={universities}
               loading={loading}
               activeTab="smart"
