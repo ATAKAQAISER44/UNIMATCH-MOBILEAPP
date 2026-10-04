@@ -1,5 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
   Text,
@@ -112,6 +113,8 @@ function RoleCard({ role, active, onPress }) {
 }
 
 export default function RoleSelectionScreen({ navigation }) {
+  // Light page: keep content clear of the notch / status bar and home bar.
+  const insets = useSafeAreaInsets();
   const [selectedRole, setSelectedRole] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -187,7 +190,7 @@ export default function RoleSelectionScreen({ navigation }) {
       >
         <ScrollView
           style={styles.container}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 16 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >

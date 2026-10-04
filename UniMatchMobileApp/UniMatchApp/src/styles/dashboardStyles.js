@@ -1,8 +1,8 @@
 
 // src/styles/dashboardStyles.js
 
-import { StyleSheet, Platform } from 'react-native';
-import { authTheme } from './authTheme';
+import { StyleSheet } from 'react-native';
+import { authTheme, CONTENT_MAX_WIDTH } from './authTheme';
 
 export const dashboardStyles = StyleSheet.create({
   screen: {
@@ -10,9 +10,9 @@ export const dashboardStyles = StyleSheet.create({
     backgroundColor: authTheme.colors.brandMint,
   },
 
+  // paddingTop is added at runtime from the device's safe-area inset.
   topBar: {
-    minHeight: 78,
-    paddingTop: Platform.OS === 'android' ? 28 : 38,
+    paddingTop: 10,
     paddingHorizontal: 12,
     paddingBottom: 10,
     flexDirection: 'row',
@@ -87,6 +87,9 @@ export const dashboardStyles = StyleSheet.create({
   },
 
   content: {
+    width: '100%',
+    maxWidth: CONTENT_MAX_WIDTH,
+    alignSelf: 'center',
     paddingHorizontal: 12,
     paddingTop: 14,
     paddingBottom: 22,

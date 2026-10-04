@@ -15,7 +15,8 @@ import CustomExplorePanel from '../components/smart-match/CustomExplorePanel';
 import SmartMatchTopBar from '../components/smart-match/SmartMatchTopBar';
 import SmartMatchHeaderCard from '../components/smart-match/SmartMatchHeaderCard';
 
-const DEFAULT_TOP_N = 50;
+// 0 = no limit: every matching university is returned and paged in the app.
+const DEFAULT_TOP_N = 0;
 const DEFAULT_SORT_BY = 'official_rank';
 const DEFAULT_SORT_ORDER = 'asc';
 const DEFAULT_DEGREE = 'MS';

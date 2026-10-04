@@ -1,10 +1,13 @@
 // src/screens/researcher/ResearcherReportScreen.js
 //
 // Researcher Research Report (web: ResearcherReportPage, UC-R-04 / UC-R-05).
-// Pick a saved experiment; the report runs every analysis for it and writes
-// up what it found. Share it as PDF or CSV.
+// Pick a saved experiment and the report is built straight away - there is
+// no "Generate" button. A saved experiment never changes and every analysis
+// is deterministic (fixed random seed), so building the same report again
+// would give the same result; reports are therefore cached per experiment
+// version for this session. Share it as PDF or CSV.
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -18,6 +21,7 @@ import {
   OutlineButton,
   PageHeader,
   SelectField,
+  useLatestRequest,
 } from '../../components/researcher/ResearcherUI';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { authTheme } from '../../styles/authTheme';
@@ -121,6 +125,14 @@ function ReportDocument({ report }) {
   );
 }
 
+// Built reports, keyed by experiment id + save time (a re-saved experiment
+// gets a new key, so its report is rebuilt).
+const reportCache = new Map();
+
+export function reportCacheKey(experiment) {
+  return experiment ? `${experiment.id}|${experiment.createdAt || ''}` : '';
+}
+
 export default function ResearcherReportScreen({ navigation, route }) {
   const params = route.params || {};
   const [experiments, setExperiments] = useState(null);
@@ -128,9 +140,10 @@ export default function ResearcherReportScreen({ navigation, route }) {
   const [report, setReport] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
+  const [retryKey, setRetryKey] = useState(0);
   const [exporting, setExporting] = useState('');
   const [exportError, setExportError] = useState(null);
-  const handledAutoGenerate = useRef(null);
+  const startRequest = useLatestRequest();
 
   useFocusEffect(
     useCallback(() => {
@@ -145,16 +158,14 @@ export default function ResearcherReportScreen({ navigation, route }) {
 
   // Opened from a saved experiment's "Report" button.
   useEffect(() => {
-    if (params.experimentId) {
-      setSelectedId(params.experimentId);
-      setReport(null);
-    }
+    if (params.experimentId) setSelectedId(params.experimentId);
   }, [params.experimentId, params.autoGenerate]);
 
   const selected = useMemo(
     () => (experiments || []).find((item) => item.id === selectedId) || null,
     [experiments, selectedId]
   );
+  const selectedKey = reportCacheKey(selected);
 
   const experimentOptions = useMemo(
     () =>
@@ -165,36 +176,46 @@ export default function ResearcherReportScreen({ navigation, route }) {
     [experiments]
   );
 
-  const generateReport = useCallback(async () => {
-    if (!selected) return;
-    setGenerating(true);
-    setError('');
+  // Build the report for the chosen experiment (or reuse the cached one).
+  useEffect(() => {
+    const isCurrent = startRequest();
     setExportError(null);
 
-    try {
-      const results = await runReportAnalyses(selected);
-      setReport(buildReport(selected, results));
-    } catch (runError) {
+    if (!selected) {
       setReport(null);
-      setError(runError.message || 'The report could not be generated.');
-    } finally {
       setGenerating(false);
+      return;
     }
-  }, [selected]);
 
-  // Build straight away when opened with an experiment.
-  useEffect(() => {
-    if (!params.autoGenerate || handledAutoGenerate.current === params.autoGenerate) return;
-    if (!selected || selected.id !== params.experimentId) return;
-    handledAutoGenerate.current = params.autoGenerate;
-    generateReport();
-  }, [params.autoGenerate, params.experimentId, selected, generateReport]);
+    const cached = reportCache.get(selectedKey);
+    if (cached) {
+      setReport(cached);
+      setError('');
+      setGenerating(false);
+      return;
+    }
 
-  const changeExperiment = (id) => {
-    setSelectedId(id);
     setReport(null);
     setError('');
-  };
+    setGenerating(true);
+
+    runReportAnalyses(selected)
+      .then((results) => {
+        if (!isCurrent()) return;
+        const built = buildReport(selected, results);
+        reportCache.set(selectedKey, built);
+        setReport(built);
+      })
+      .catch((runError) => {
+        if (!isCurrent()) return;
+        setError(runError.message || 'The report could not be built.');
+      })
+      .finally(() => {
+        if (isCurrent()) setGenerating(false);
+      });
+    // selectedKey identifies the experiment version.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKey, retryKey, startRequest]);
 
   const runExport = async (format) => {
     setExporting(format);
@@ -213,26 +234,24 @@ export default function ResearcherReportScreen({ navigation, route }) {
   return (
     <ResearcherLayout navigation={navigation} activeKey="report">
       <PageHeader
-        eyebrow="Researcher Report"
         title="Research Report"
-        subtitle="Pick one of your saved experiments. The report runs every analysis for it — dataset summary, indicator relationships, ranking comparison and the stability test — and writes up what it found. Share it as PDF or CSV."
+        subtitle="A full write-up of one saved experiment. Choose it below; share as PDF or CSV."
       />
 
       {experiments === null ? (
         <Card>
-          <LoadingBlock text="Loading saved experiments..." />
+          <LoadingBlock />
         </Card>
       ) : experiments.length === 0 ? (
         <Card style={{ borderColor: '#FDE68A', backgroundColor: '#FFFBEB' }}>
-          <Text style={[styles.sectionTitle, { textAlign: 'center' }]}>No analysis to report on yet</Text>
+          <Text style={[styles.sectionTitle, { textAlign: 'center' }]}>No saved experiments yet</Text>
           <Text style={[styles.mutedText, { textAlign: 'center', marginVertical: 8 }]}>
-            A report is built from a saved experiment. Go to Weight Analysis, set your weights and press "Save as
-            Experiment" — then come back here.
+            Save one in Weight Analysis, then come back here.
           </Text>
           <GradientButton
             title="Open Weight Analysis"
             onPress={() =>
-              navigation.navigate(RESEARCHER_ROUTES.weights, { dataset: 'qs' }, { pop: true })
+              navigation.navigate(RESEARCHER_ROUTES.weights, { dataset: 'qs', section: 'weights' }, { pop: true })
             }
           />
         </Card>
@@ -243,42 +262,17 @@ export default function ResearcherReportScreen({ navigation, route }) {
             title="Saved experiment"
             value={selectedId}
             options={experimentOptions}
-            onChange={changeExperiment}
+            onChange={setSelectedId}
             placeholder="Choose a saved experiment"
           />
           {!!selected?.note && (
             <Text style={[styles.mutedText, { fontStyle: 'italic', marginTop: 6 }]}>“{selected.note}”</Text>
           )}
-          <GradientButton
-            title={generating ? 'Running analyses...' : report ? 'Generate Again' : 'Generate Report'}
-            loading={generating}
-            disabled={!selected}
-            onPress={generateReport}
-            style={{ marginTop: 10 }}
-          />
-        </Card>
-      )}
 
-      {!!error && (
-        <ErrorBox
-          message={/backend is running/i.test(error) ? error : `${error} Please make sure the backend is running.`}
-          onRetry={generateReport}
-        />
-      )}
-
-      {generating && !report && (
-        <Card>
-          <LoadingBlock text="Running the dataset summary, relationships, ranking comparison and 500 stability tests..." />
-        </Card>
-      )}
-
-      {report && (
-        <>
-          <Card>
-            <Text style={[styles.mutedText, { marginBottom: 8 }]}>Report ready · {report.sections.length} sections</Text>
-            <View style={styles.twoCol}>
+          {report && (
+            <View style={[styles.twoCol, { marginTop: 10 }]}>
               <GradientButton
-                title={exporting === 'pdf' ? 'Preparing PDF...' : 'Share PDF'}
+                title="Share PDF"
                 loading={exporting === 'pdf'}
                 disabled={!!exporting}
                 onPress={() => runExport('pdf')}
@@ -291,18 +285,26 @@ export default function ResearcherReportScreen({ navigation, route }) {
                 style={styles.flex1}
               />
             </View>
-          </Card>
-
-          {exportError && (
-            <ErrorBox
-              message={`The ${exportError.toUpperCase()} file could not be created.`}
-              onRetry={() => runExport(exportError)}
-            />
           )}
-
-          <ReportDocument report={report} />
-        </>
+        </Card>
       )}
+
+      {!!error && <ErrorBox message={error} onRetry={() => setRetryKey((value) => value + 1)} />}
+
+      {exportError && (
+        <ErrorBox
+          message={`The ${exportError.toUpperCase()} file could not be created.`}
+          onRetry={() => runExport(exportError)}
+        />
+      )}
+
+      {generating && (
+        <Card>
+          <LoadingBlock />
+        </Card>
+      )}
+
+      {report && !generating && <ReportDocument report={report} />}
     </ResearcherLayout>
   );
 }

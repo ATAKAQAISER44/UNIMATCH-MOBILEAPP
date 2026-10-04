@@ -33,7 +33,7 @@ import RankingFilterCard from '../components/rankings/RankingFilterCard';
 import RankingTableHeader from '../components/rankings/RankingTableHeader';
 import UniversityTableRow from '../components/rankings/UniversityTableRow';
 import OptionModal from '../components/rankings/OptionModal';
-import UniversityDetailsModal from '../components/rankings/UniversityDetailsModal';
+import { useOpenUniversity } from '../components/UniversityLink';
 
 import MyRankingScreen from '../components/rankings/my-ranking/MyRankingScreen';
 
@@ -57,6 +57,10 @@ import {
 import {
   dedupeUniversities,
   escapeCsv,
+  getCountry,
+  getOfficialRank,
+  getPersonalizedRank,
+  getUniName,
   getUniversityKey,
   normalizeResults,
 } from '../utils/rankingsUtils';
@@ -109,7 +113,6 @@ export default function RankingsScreen({ route = {}, navigation }) {
   const [tabLoading, setTabLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  const [selectedUni, setSelectedUni] = useState(null);
   const [countryModal, setCountryModal] = useState(false);
   const [rowsModal, setRowsModal] = useState(false);
   const [compareModalVisible, setCompareModalVisible] = useState(false);
@@ -506,7 +509,19 @@ export default function RankingsScreen({ route = {}, navigation }) {
   const closeRowsModal = useCallback(() => setRowsModal(false), []);
   const openRowsModal = useCallback(() => setRowsModal(true), []);
 
-  const closeDetailsModal = useCallback(() => setSelectedUni(null), []);
+  // Tapping a university opens its introduction page.
+  const openUniversity = useOpenUniversity();
+  const handleOpenUniversity = useCallback(
+    (item) => {
+      openUniversity({
+        name: getUniName(item),
+        country: getCountry(item),
+        dataset: datasetKey,
+        rank: activeTab === 'my' ? getPersonalizedRank(item, 0) : getOfficialRank(item),
+      });
+    },
+    [activeTab, datasetKey, openUniversity]
+  );
   const openCompareModal = useCallback(() => setCompareModalVisible(true), []);
   const closeCompareModal = useCallback(() => setCompareModalVisible(false), []);
   const clearCompareList = useCallback(() => setCompareList([]), []);
@@ -1211,7 +1226,7 @@ export default function RankingsScreen({ route = {}, navigation }) {
         saved={isSaved(item)}
         // PERF: stable handlers (the row passes `item` back), so memoized
         // rows whose state did not change are skipped on re-render.
-        onDetails={setSelectedUni}
+        onDetails={handleOpenUniversity}
         onCompare={handleToggleCompare}
         onSave={handleToggleSave}
       />
@@ -1236,13 +1251,7 @@ export default function RankingsScreen({ route = {}, navigation }) {
     []
   );
 
-  const handleDetailsCompare = useCallback(() => {
-    if (selectedUni) handleToggleCompare(selectedUni);
-  }, [handleToggleCompare, selectedUni]);
 
-  const handleDetailsSave = useCallback(() => {
-    if (selectedUni) handleToggleSave(selectedUni);
-  }, [handleToggleSave, selectedUni]);
 
   const keyExtractor = useCallback(
     (item, index) => `${getUniversityKey(item)}-${index}`,
@@ -1253,7 +1262,6 @@ export default function RankingsScreen({ route = {}, navigation }) {
     return (
       <View style={styles.fullLoading}>
         <ActivityIndicator size="large" color={authTheme.colors.brandTeal} />
-        <Text style={styles.loadingText}>Loading rankings...</Text>
       </View>
     );
   }
@@ -1328,7 +1336,7 @@ export default function RankingsScreen({ route = {}, navigation }) {
           setOpenBreakdownKey={setOpenBreakdownKey}
           isCompared={isCompared}
           isSaved={isSaved}
-          setSelectedUni={setSelectedUni}
+          setSelectedUni={handleOpenUniversity}
           handleToggleCompare={handleToggleCompare}
           handleToggleSave={handleToggleSave}
         />
@@ -1395,7 +1403,6 @@ export default function RankingsScreen({ route = {}, navigation }) {
                     color={authTheme.colors.brandTeal}
                     size="large"
                   />
-                  <Text style={styles.loadingText}>Loading results...</Text>
                 </View>
               ) : null}
             </>
@@ -1503,16 +1510,6 @@ export default function RankingsScreen({ route = {}, navigation }) {
         visible={!!infoModal}
         info={infoModal}
         onClose={closeInfo}
-      />
-
-      <UniversityDetailsModal
-        visible={!!selectedUni}
-        item={selectedUni}
-        onClose={closeDetailsModal}
-        compared={selectedUni ? isCompared(selectedUni) : false}
-        saved={selectedUni ? isSaved(selectedUni) : false}
-        onCompare={handleDetailsCompare}
-        onSave={handleDetailsSave}
       />
 
       <CompareModal

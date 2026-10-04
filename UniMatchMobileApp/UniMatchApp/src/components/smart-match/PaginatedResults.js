@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { authTheme } from '../../styles/authTheme';
+import UniversityLink from '../UniversityLink';
 
 const safeText = (value, fallback = '') => {
   if (value === null || value === undefined || value === '') return fallback;
@@ -137,7 +138,6 @@ function LoadingState() {
   return (
     <View style={styles.stateBox}>
       <ActivityIndicator size="large" color={authTheme.colors.brandTeal} />
-      <Text style={styles.stateText}>Loading results...</Text>
     </View>
   );
 }
@@ -214,9 +214,13 @@ const UniversityCard = memo(function UniversityCard({
         </View>
 
         <View style={styles.titleBlock}>
-          <Text style={styles.uniName} numberOfLines={2}>
-            {safeText(name, 'Unknown University')}
-          </Text>
+          <UniversityLink
+            name={safeText(name, 'Unknown University')}
+            country={country}
+            rank={officialRank !== 'N/A' ? officialRank : undefined}
+            style={styles.uniName}
+            numberOfLines={2}
+          />
 
           <Text style={styles.countryText} numberOfLines={1}>
             📍 {safeText(country, 'Unknown Country')}

@@ -10,15 +10,19 @@ import {
 } from 'react-native';
 
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authTheme } from '../styles/authTheme';
 
 const CompareBar = ({ compareList = [], onOpenCompare, onClearCompare }) => {
+  // Keep the floating bar above the home indicator / navigation bar.
+  const insets = useSafeAreaInsets();
+
   if (!compareList.length) return null;
 
   const count = compareList.length;
 
   return (
-    <View style={styles.wrapper} pointerEvents="box-none">
+    <View style={[styles.wrapper, { bottom: insets.bottom + 12 }]} pointerEvents="box-none">
       <View style={styles.card}>
         <View style={styles.topRow}>
           <View style={styles.iconBox}>
@@ -30,9 +34,7 @@ const CompareBar = ({ compareList = [], onOpenCompare, onClearCompare }) => {
               {count} universit{count === 1 ? 'y' : 'ies'} selected
             </Text>
 
-            <Text style={styles.subtitle}>
-              Compare up to 3 universities side by side.
-            </Text>
+            <Text style={styles.subtitle}>Up to 3, side by side.</Text>
           </View>
 
           <View style={styles.countBadge}>

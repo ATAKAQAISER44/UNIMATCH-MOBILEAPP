@@ -2,7 +2,7 @@
 // src/components/rankings/RankingFilterCard.js
 
 import React, { memo } from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { rankingsStyles as styles } from '../../styles/rankingsStyles';
@@ -74,9 +74,11 @@ const RankingFilterCard = memo(function RankingFilterCard({
           end={{ x: 1, y: 0.5 }}
           style={styles.exportGradient}
         >
-          <Text style={styles.exportText}>
-            {exporting ? 'Exporting...' : '▧  Export CSV  ⌄'}
-          </Text>
+          {exporting ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.exportText}>▧  Export CSV  ⌄</Text>
+          )}
         </LinearGradient>
       </TouchableOpacity>
     </View>

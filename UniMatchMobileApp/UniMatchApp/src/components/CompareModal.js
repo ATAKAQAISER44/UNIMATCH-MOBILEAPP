@@ -2,6 +2,7 @@
 // src/components/CompareModal.js
 
 import React, { useMemo, useState } from 'react';
+import UniversityLink from './UniversityLink';
 import {
   View,
   Text,
@@ -390,9 +391,13 @@ export default function CompareModal({
                       <Text style={styles.uniIcon}>⌂</Text>
                     </View>
 
-                    <Text style={styles.columnTitle} numberOfLines={3}>
-                      {getUniversityName(university)}
-                    </Text>
+                    <UniversityLink
+                      name={getUniversityName(university)}
+                      country={getUniversityCountry(university)}
+                      style={styles.columnTitle}
+                      numberOfLines={3}
+                      onBeforeOpen={onClose}
+                    />
 
                     <Text style={styles.columnCountry} numberOfLines={2}>
                       📍 {getUniversityCountry(university)}

@@ -5,7 +5,7 @@
 // the researcher area looks like the rest of the app.
 
 import { StyleSheet, Platform } from 'react-native';
-import { authTheme } from './authTheme';
+import { authTheme, CONTENT_MAX_WIDTH } from './authTheme';
 
 const colors = authTheme.colors;
 
@@ -27,12 +27,21 @@ const uppercaseLabel = { fontWeight: '900', textTransform: 'uppercase', letterSp
 export const researcherStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.brandMint },
   scroll: { flex: 1, backgroundColor: colors.brandMint },
-  content: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 32 },
+  // Content is capped and centred on wide screens (tablets, foldables) so
+  // cards do not stretch edge to edge.
+  content: {
+    width: '100%',
+    maxWidth: CONTENT_MAX_WIDTH,
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 14,
+    paddingBottom: 32,
+  },
 
   // ── Top bar ────────────────────────────────────────────────────────────
+  // paddingTop is added at runtime from the device's safe-area inset.
   topBar: {
-    minHeight: 78,
-    paddingTop: Platform.OS === 'android' ? 28 : 38,
+    paddingTop: 10,
     paddingHorizontal: 12,
     paddingBottom: 10,
     flexDirection: 'row',
@@ -353,9 +362,9 @@ export const researcherStyles = StyleSheet.create({
   successText: { fontSize: 11.5, fontWeight: '800', color: '#047857', textAlign: 'center', marginTop: 8 },
 
   // ── Pagination ─────────────────────────────────────────────────────────
-  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 6 },
+  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 6 },
   pageButton: {
-    minWidth: 40,
+    minWidth: 38,
     height: 36,
     borderRadius: 12,
     borderWidth: 1,
@@ -365,7 +374,7 @@ export const researcherStyles = StyleSheet.create({
     ...center,
   },
   pageButtonText: { fontSize: 12.5, fontWeight: '900', color: colors.brandTeal },
-  pageInfo: { fontSize: 12, fontWeight: '800', color: colors.gray700, minWidth: 90, textAlign: 'center' },
+  pageInfo: { fontSize: 12, fontWeight: '800', color: colors.gray700, minWidth: 64, textAlign: 'center' },
 
   // ── Bars ───────────────────────────────────────────────────────────────
   barTrack: { height: 7, borderRadius: 999, backgroundColor: '#E2E8F0', overflow: 'hidden' },
@@ -421,7 +430,8 @@ export const researcherStyles = StyleSheet.create({
     width: '82%',
     maxWidth: 340,
     backgroundColor: '#FFFFFF',
-    paddingTop: Platform.OS === 'android' ? 34 : 50,
+    // Top/bottom padding is added at runtime from the safe-area insets.
+    paddingTop: 12,
     paddingBottom: 20,
     shadowColor: '#0F172A',
     shadowOpacity: 0.2,

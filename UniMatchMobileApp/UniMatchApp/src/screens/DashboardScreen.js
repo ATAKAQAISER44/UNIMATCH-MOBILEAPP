@@ -248,7 +248,7 @@ export default function DashboardScreen({ navigation }) {
   }, [recommended, handleOpenRankings]);
 
   if (loading) {
-    return <LoadingScreen message="Loading dashboard..." />;
+    return <LoadingScreen />;
   }
 
   if (isResearcherRole(profile?.role)) {

@@ -95,10 +95,10 @@ const EXAMPLES = [
 ];
 
 function HowToReadCorrelation() {
-  const [open, toggle] = usePersistentToggle('researcher-correlation-how-to-read-open');
+  const [open, toggle] = usePersistentToggle('researcher-correlation-how-to-read-open', false);
 
   return (
-    <CollapsibleCard eyebrow="New to correlation?" title="How to read the heatmap" open={open} onToggle={toggle}>
+    <CollapsibleCard title="How to read the heatmap" open={open} onToggle={toggle}>
       <Text style={styles.bodyText}>
         Each box gives one number between <Text style={styles.boldText}>−1</Text> and{' '}
         <Text style={styles.boldText}>+1</Text>. It answers one question: "If a university scores high in this
@@ -179,16 +179,15 @@ export default function CorrelationHeatmap({ correlation, labelFor, overallKey, 
 
       {findings.length > 0 && (
         <Card>
-          <SectionHeading eyebrow="Key findings" title="Which indicators go together" />
+          <SectionHeading title="Key findings" />
           <FindingCards findings={findings} />
         </Card>
       )}
 
       <Card>
         <SectionHeading
-          eyebrow="Heatmap"
-          title="How strongly each pair of indicators is linked"
-          subtitle="Find one indicator number on the left and another along the top. Tap any box to read what it means. Swipe sideways if the grid is wider than the screen."
+          title="Heatmap"
+          subtitle="Tap a box to see what it means. Swipe sideways for more."
         />
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>

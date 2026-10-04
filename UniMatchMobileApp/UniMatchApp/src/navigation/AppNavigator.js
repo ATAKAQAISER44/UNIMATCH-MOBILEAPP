@@ -19,6 +19,7 @@ import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import OtpVerificationScreen from '../screens/OtpVerificationScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import ProfileViewScreen from '../screens/ProfileViewScreen';
+import UniversityScreen from '../screens/UniversityScreen';
 
 import ResearcherDatasetScreen from '../screens/researcher/ResearcherDatasetScreen';
 import ResearcherStatisticsScreen from '../screens/researcher/ResearcherStatisticsScreen';
@@ -64,7 +65,7 @@ export default function AppNavigator() {
   };
 
   if (!initialRoute) {
-    return <LoadingScreen message="Starting UniMatch..." />;
+    return <LoadingScreen />;
   }
 
   return (
@@ -87,6 +88,7 @@ export default function AppNavigator() {
 
         <Stack.Screen name="Dashboard" component={DashboardScreen} />
         <Stack.Screen name="ProfileView" component={ProfileViewScreen} />
+        <Stack.Screen name="University" component={UniversityScreen} />
 
         <Stack.Screen
           name="Rankings"

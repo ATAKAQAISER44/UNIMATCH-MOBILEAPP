@@ -6,7 +6,8 @@ export const MY_RANKING_STORAGE_KEY =
 
 export const SAVED_UNIVERSITIES_KEY = 'unimatch_mobile_saved_universities';
 
-export const TOP_N = 50;
+// 0 = no limit: every university is returned and paged in the app.
+export const TOP_N = 0;
 export const MY_PAGE_SIZE = 4;
 export const DEFAULT_VISIBLE_RANKING_COUNT = 3;
 

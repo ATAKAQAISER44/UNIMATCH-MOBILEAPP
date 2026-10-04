@@ -76,3 +76,7 @@ export const authTheme = {
     },
   },
 };
+
+// Widest the main content column gets. On tablets / wide phones the content
+// is centred at this width instead of stretching edge to edge.
+export const CONTENT_MAX_WIDTH = 760;

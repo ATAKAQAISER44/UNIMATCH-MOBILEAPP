@@ -2,7 +2,8 @@
 // src/components/dashboard/DashboardTopBar.js
 
 import React, { memo } from 'react';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -12,17 +13,21 @@ import { authTheme } from '../../styles/authTheme';
 const LOGO = require('../../../assets/images/icon.png');
 
 const DashboardTopBar = memo(function DashboardTopBar({ onMenuPress }) {
+  const insets = useSafeAreaInsets();
+
   return (
     <LinearGradient
       colors={authTheme.gradients.button}
       start={{ x: 0, y: 0.5 }}
       end={{ x: 1, y: 0.5 }}
-      style={styles.topBar}
+      style={[styles.topBar, { paddingTop: insets.top + 10 }]}
     >
+      <StatusBar barStyle="light-content" />
       <TouchableOpacity
         style={styles.menuButton}
         activeOpacity={0.82}
         onPress={onMenuPress}
+        accessibilityLabel="Open menu"
       >
         <Ionicons name="menu-outline" size={24} color="#FFFFFF" />
       </TouchableOpacity>

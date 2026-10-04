@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '../../services/supabase';
 import { authTheme } from '../../styles/authTheme';
@@ -182,9 +183,7 @@ function UniversitySearchModal({ visible, onClose, onSearch, defaultDataset }) {
         <Pressable style={styles.modalBackdrop} onPress={onClose}>
           <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.modalTitle}>Search Universities</Text>
-            <Text style={[styles.mutedText, { marginBottom: 12 }]}>
-              Find a university and open it in the Dataset Explorer of the ranking you choose.
-            </Text>
+            <Text style={[styles.mutedText, { marginBottom: 12 }]}>Opens the results in the Dataset Explorer.</Text>
             <SearchInput value={query} onChangeText={setQuery} placeholder="University or country..." />
             <Text style={styles.label}>Open in</Text>
             <SegmentedControl options={SEARCH_DATASETS} value={dataset} onChange={setDataset} />
@@ -198,6 +197,7 @@ function UniversitySearchModal({ visible, onClose, onSearch, defaultDataset }) {
 
 export function ResearcherMenu({ visible, onClose, navigation, activeKey, context }) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const insets = useSafeAreaInsets();
   const dataset = context?.dataset || 'qs';
   const groups = buildGroups(dataset, context?.year);
 
@@ -224,7 +224,10 @@ export function ResearcherMenu({ visible, onClose, navigation, activeKey, contex
     <>
       <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
         <Pressable style={styles.menuOverlay} onPress={onClose}>
-          <Pressable style={styles.menuPanel} onPress={(event) => event.stopPropagation()}>
+          <Pressable
+            style={[styles.menuPanel, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 20 }]}
+            onPress={(event) => event.stopPropagation()}
+          >
             <View style={styles.menuHeader}>
               <Text style={styles.eyebrow}>Researcher tools</Text>
               <Text style={styles.sectionTitle}>UniMatch Research</Text>

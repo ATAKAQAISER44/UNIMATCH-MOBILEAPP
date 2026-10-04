@@ -60,7 +60,8 @@ const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
 const DEFAULT_SORT_BY = 'official_rank';
 const DEFAULT_SORT_ORDER = 'asc';
-const DEFAULT_TOP_N = 50;
+// 0 = no limit: every matching university is returned and paged in the app.
+const DEFAULT_TOP_N = 0;
 const DEFAULT_PAGE_SIZE = 5;
 
 const INITIAL_PROFILE = {
@@ -197,7 +198,6 @@ const OptionChipSelector = memo(function OptionChipSelector({
 
 const GradientButton = memo(function GradientButton({
   label,
-  loadingLabel,
   loading,
   disabled,
   onPress,
@@ -213,9 +213,11 @@ const GradientButton = memo(function GradientButton({
         disabled={disabled}
         activeOpacity={0.85}
       >
-        <Text style={styles.secondaryButtonText}>
-          {loading ? loadingLabel : label}
-        </Text>
+        {loading ? (
+          <ActivityIndicator size="small" color={authTheme.colors.brandTeal} />
+        ) : (
+          <Text style={styles.secondaryButtonText}>{label}</Text>
+        )}
       </TouchableOpacity>
     );
   }
@@ -233,9 +235,11 @@ const GradientButton = memo(function GradientButton({
         end={{ x: 1, y: 0.5 }}
         style={styles.primaryButton}
       >
-        <Text style={styles.primaryButtonText}>
-          {loading ? loadingLabel : label}
-        </Text>
+        {loading ? (
+          <ActivityIndicator size="small" color={'#FFFFFF'} />
+        ) : (
+          <Text style={styles.primaryButtonText}>{label}</Text>
+        )}
       </LinearGradient>
     </TouchableOpacity>
   );
@@ -282,7 +286,6 @@ const SortControlsMobile = memo(function SortControlsMobile({
 
       <GradientButton
         label="Apply Sort"
-        loadingLabel="Applying..."
         loading={loading}
         disabled={loading}
         onPress={onApply}
@@ -724,7 +727,6 @@ export default function ProfileMatchPanel({
     return (
       <View style={styles.loadingBox}>
         <ActivityIndicator size="large" color={authTheme.colors.brandTeal} />
-        <Text style={styles.loadingText}>Loading your profile...</Text>
       </View>
     );
   }
@@ -875,7 +877,6 @@ export default function ProfileMatchPanel({
           <View style={styles.actionRow}>
             <GradientButton
               label="Save & Use"
-              loadingLabel="Matching..."
               loading={loading}
               disabled={loading}
               onPress={saveAndUseProfile}
@@ -883,7 +884,6 @@ export default function ProfileMatchPanel({
 
             <GradientButton
               label="Use Temporarily"
-              loadingLabel="Please wait..."
               loading={loading}
               disabled={loading}
               onPress={useTemporarily}
@@ -899,7 +899,6 @@ export default function ProfileMatchPanel({
             {smartNotice?.can_ignore && smartNotice?.main_blocker ? (
               <GradientButton
                 label={`Show without ${blockerLabel}`}
-                loadingLabel="Loading..."
                 loading={loading}
                 disabled={loading}
                 onPress={handleIgnoreBlocker}

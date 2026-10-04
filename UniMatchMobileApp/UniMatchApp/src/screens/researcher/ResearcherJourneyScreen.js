@@ -8,10 +8,12 @@ import React, { useMemo, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 import ResearcherLayout from '../../components/researcher/ResearcherLayout';
+import { useOpenUniversity } from '../../components/UniversityLink';
 import {
   Card,
   EmptyState,
   ErrorBox,
+  InlineLoader,
   LoadingBlock,
   OutlineButton,
   PageHeader,
@@ -210,6 +212,7 @@ export default function ResearcherJourneyScreen({ navigation }) {
   const [chartWidth, setChartWidth] = useState(0);
 
   const debouncedQuery = useDebouncedValue(query.trim());
+  const openUniversity = useOpenUniversity();
   const startSearch = useLatestRequest();
   const startJourney = useLatestRequest();
 
@@ -267,14 +270,9 @@ export default function ResearcherJourneyScreen({ navigation }) {
 
   return (
     <ResearcherLayout navigation={navigation} activeKey="journey">
-      <PageHeader
-        eyebrow="Researcher Tools"
-        title="University Journey"
-        subtitle="Search any university and see how its rank moved across QS, THE, and ARWU over the editions available in this app."
-      />
+      <PageHeader title="University Journey" subtitle="How a university's rank moved across QS, THE and ARWU editions." />
 
       <Card>
-        <Text style={styles.label}>Search University</Text>
         <SearchInput
           value={query}
           onChangeText={(text) => {
@@ -287,9 +285,9 @@ export default function ResearcherJourneyScreen({ navigation }) {
         {showSuggestions && (
           <View style={styles.suggestionBox}>
             {searchLoading || query.trim() !== debouncedQuery ? (
-              <Text style={[styles.mutedText, { padding: 12 }]}>Searching...</Text>
+              <InlineLoader />
             ) : suggestions.length === 0 ? (
-              <Text style={[styles.mutedText, { padding: 12 }]}>No university found. Try another name.</Text>
+              <Text style={[styles.mutedText, { padding: 12 }]}>No university found.</Text>
             ) : (
               suggestions.map((item) => (
                 <TouchableOpacity key={item.key} style={styles.suggestionRow} onPress={() => selectUniversity(item)}>
@@ -306,15 +304,21 @@ export default function ResearcherJourneyScreen({ navigation }) {
         <ErrorBox message={error} />
 
         {journeyLoading ? (
-          <LoadingBlock text="Loading journey..." />
+          <LoadingBlock />
         ) : !journey ? (
-          !error && <EmptyState text="Search and select a university to see its ranking journey." />
+          !error && <EmptyState text="Search for a university to see its journey." />
         ) : (
           <View>
             <SectionHeading
               title={journey.name}
               subtitle={journey.country}
-              right={<OutlineButton title="Export CSV" small onPress={exportJourney} />}
+              right={<OutlineButton title="CSV" small onPress={exportJourney} />}
+            />
+            <OutlineButton
+              title="University profile"
+              small
+              onPress={() => openUniversity({ name: journey.name, country: journey.country })}
+              style={{ alignSelf: 'flex-start', marginBottom: 10 }}
             />
             <Legend />
 
@@ -333,8 +337,7 @@ export default function ResearcherJourneyScreen({ navigation }) {
 
             {datasetsWithoutData.length > 0 && (
               <Text style={styles.noteText}>
-                Not found in: {datasetsWithoutData.map((key) => DATASET_STYLE[key].label).join(', ')}. As more editions
-                are added for these datasets, this journey will fill in automatically.
+                Not ranked in: {datasetsWithoutData.map((key) => DATASET_STYLE[key].label).join(', ')}.
               </Text>
             )}
 

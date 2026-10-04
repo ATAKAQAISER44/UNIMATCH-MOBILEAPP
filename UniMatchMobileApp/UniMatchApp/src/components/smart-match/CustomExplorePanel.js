@@ -3,6 +3,7 @@
 
 import React, { memo, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   TextInput,
@@ -47,13 +48,13 @@ const PAGE_SIZE_OPTIONS = [
 const DEFAULT_SORT_BY = 'official_rank';
 const DEFAULT_SORT_ORDER = 'asc';
 const DEFAULT_PAGE_SIZE = 5;
-const DEFAULT_TOP_N = 50;
+// 0 = no limit: every matching university is returned and paged in the app.
+const DEFAULT_TOP_N = 0;
 
 const makeId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 function GradientButton({
   label,
-  loadingLabel,
   loading,
   disabled,
   onPress,
@@ -70,9 +71,11 @@ function GradientButton({
         disabled={disabled}
         activeOpacity={0.85}
       >
-        <Text style={styles.ghostBtnText}>
-          {loading ? loadingLabel : label}
-        </Text>
+        {loading ? (
+          <ActivityIndicator size="small" color={authTheme.colors.brandTeal} />
+        ) : (
+          <Text style={styles.ghostBtnText}>{label}</Text>
+        )}
       </TouchableOpacity>
     );
   }
@@ -85,9 +88,11 @@ function GradientButton({
         disabled={disabled}
         activeOpacity={0.85}
       >
-        <Text style={styles.tealBtnText}>
-          {loading ? loadingLabel : label}
-        </Text>
+        {loading ? (
+          <ActivityIndicator size="small" color={'#FFFFFF'} />
+        ) : (
+          <Text style={styles.tealBtnText}>{label}</Text>
+        )}
       </TouchableOpacity>
     );
   }
@@ -105,9 +110,11 @@ function GradientButton({
         end={{ x: 1, y: 0.5 }}
         style={styles.primaryBtn}
       >
-        <Text style={styles.primaryBtnText}>
-          {loading ? loadingLabel : label}
-        </Text>
+        {loading ? (
+          <ActivityIndicator size="small" color={'#FFFFFF'} />
+        ) : (
+          <Text style={styles.primaryBtnText}>{label}</Text>
+        )}
       </LinearGradient>
     </TouchableOpacity>
   );
@@ -215,7 +222,6 @@ const SortOptionsModal = memo(function SortOptionsModal({
 
             <GradientButton
               label="Apply Sort"
-              loadingLabel="Applying..."
               loading={loading}
               disabled={loading}
               onPress={onApply}
@@ -499,9 +505,11 @@ export default function CustomExplorePanel({
                       disabled={loading}
                       onPress={applyFilters}
                     >
-                      <Text style={styles.compactPrimaryText}>
-                        {loading ? '...' : '✓ Apply'}
-                      </Text>
+                      {loading ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.compactPrimaryText}>✓ Apply</Text>
+                      )}
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -547,7 +555,6 @@ export default function CustomExplorePanel({
                       <View style={styles.saveActions}>
                         <GradientButton
                           label="Save"
-                          loadingLabel="Saving..."
                           loading={false}
                           disabled={false}
                           onPress={saveCurrentSearch}
@@ -555,7 +562,6 @@ export default function CustomExplorePanel({
 
                         <GradientButton
                           label="Cancel"
-                          loadingLabel="Cancel"
                           loading={false}
                           disabled={false}
                           onPress={() => {

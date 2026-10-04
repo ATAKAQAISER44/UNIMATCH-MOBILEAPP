@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -19,17 +20,20 @@ import { smartMatchStyles as styles } from '../../styles/smartMatchStyles';
 const LOGO = require('../../../assets/images/icon.png');
 
 const SmartMatchTopBar = memo(function SmartMatchTopBar({ onBackPress }) {
+  const insets = useSafeAreaInsets();
+
   return (
     <LinearGradient
       colors={authTheme.gradients.button}
       start={{ x: 0, y: 0.5 }}
       end={{ x: 1, y: 0.5 }}
-      style={styles.topBar}
+      style={[styles.topBar, { paddingTop: insets.top + 10 }]}
     >
       <TouchableOpacity
         style={styles.menuButton}
         activeOpacity={0.82}
         onPress={onBackPress}
+        accessibilityLabel="Go back"
       >
         <Text style={styles.menuIcon}>←</Text>
       </TouchableOpacity>

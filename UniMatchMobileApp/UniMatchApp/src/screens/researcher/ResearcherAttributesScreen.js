@@ -8,6 +8,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 import ResearcherLayout from '../../components/researcher/ResearcherLayout';
+import UniversityLink from '../../components/UniversityLink';
 import {
   Card,
   EmptyState,
@@ -46,7 +47,7 @@ const AttributeRow = React.memo(function AttributeRow({ row, expanded, onToggle 
 
   return (
     <TouchableOpacity activeOpacity={0.86} style={styles.rowCard} onPress={onToggle}>
-      <Text style={styles.rowName}>{row.name}</Text>
+      <UniversityLink name={row.name} country={row.country} style={styles.rowName} />
       <Text style={styles.rowSub}>
         {row.country || 'N/A'}
         {row.region ? ` · ${row.region}` : ''}
@@ -61,7 +62,7 @@ const AttributeRow = React.memo(function AttributeRow({ row, expanded, onToggle 
           </View>
         ))}
       </View>
-      <Text style={styles.expandText}>{expanded ? 'Show less ▲' : 'Show all attributes ▼'}</Text>
+      <Text style={styles.expandText}>{expanded ? 'Less ▲' : 'All attributes ▼'}</Text>
     </TouchableOpacity>
   );
 });
@@ -193,14 +194,9 @@ export default function ResearcherAttributesScreen({ navigation }) {
         setReloadKey((value) => value + 1);
       }}
     >
-      <PageHeader
-        eyebrow="Researcher Tools"
-        title="University Attributes Explorer"
-        subtitle="Browse the manually collected university attributes — tuition, living cost, scholarships, acceptance rate, and more — independent of any single ranking dataset."
-      />
+      <PageHeader title="Attributes Explorer" subtitle="Fees, living cost, scholarships and admission for each university." />
 
       <Card>
-        <Text style={styles.label}>Search</Text>
         <SearchInput value={search} onChangeText={changeFilter(setSearch)} placeholder="Search university or country..." />
 
         <View style={[styles.twoCol, styles.fieldGap]}>
@@ -235,7 +231,7 @@ export default function ResearcherAttributesScreen({ navigation }) {
         />
 
         <GradientButton
-          title={exporting ? 'Exporting...' : 'Export CSV'}
+          title="Export CSV"
           icon="▧"
           loading={exporting}
           onPress={() => chooseExportScope(() => exportRows(rows, 'attributes-current-page.csv'), exportComplete)}
@@ -243,15 +239,12 @@ export default function ResearcherAttributesScreen({ navigation }) {
       </Card>
 
       <Card>
-        <SectionHeading
-          eyebrow="Universities"
-          title={loading ? 'Loading...' : `${firstResult}–${lastResult} of ${totalCount} universities`}
-        />
+        <SectionHeading title={loading ? 'Universities' : `${firstResult}–${lastResult} of ${totalCount} universities`} />
 
         <ErrorBox message={error} onRetry={() => setReloadKey((value) => value + 1)} />
 
         {loading ? (
-          <LoadingBlock text="Loading university attributes..." />
+          <LoadingBlock />
         ) : rows.length === 0 ? (
           !error && <EmptyState text="No universities found." />
         ) : (
@@ -270,10 +263,7 @@ export default function ResearcherAttributesScreen({ navigation }) {
 
         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
-        <Text style={styles.noteText}>
-          Source data is manually collected per university and may be incomplete for some fields — missing values
-          show as N/A.
-        </Text>
+        <Text style={styles.noteText}>Collected by hand; N/A = not available.</Text>
       </Card>
     </ResearcherLayout>
   );

@@ -300,12 +300,11 @@ export default function MyRankingScreen({
             {myRankingLoading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <Ionicons name="calculator-outline" size={17} color="#FFFFFF" />
+              <>
+                <Ionicons name="calculator-outline" size={17} color="#FFFFFF" />
+                <Text style={myStyles.primaryActionText}>Compute My Ranking</Text>
+              </>
             )}
-
-            <Text style={myStyles.primaryActionText}>
-              {myRankingLoading ? 'Computing...' : 'Compute My Ranking'}
-            </Text>
           </LinearGradient>
         </TouchableOpacity>
 

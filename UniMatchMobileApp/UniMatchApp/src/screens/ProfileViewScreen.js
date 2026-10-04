@@ -14,6 +14,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '../services/supabase';
 import { getSignedInUser } from '../services/session';
@@ -274,7 +275,6 @@ export default function ProfileViewScreen({ navigation }) {
         <View style={styles.loadingWrap}>
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color={authTheme.colors.brandTeal} />
-            <Text style={styles.loadingText}>Loading profile...</Text>
           </View>
         </View>
       </View>
@@ -370,12 +370,14 @@ export default function ProfileViewScreen({ navigation }) {
 }
 
 function ProfileTopBar({ onBackPress }) {
+  const insets = useSafeAreaInsets();
+
   return (
     <LinearGradient
       colors={authTheme.gradients.button}
       start={{ x: 0, y: 0.5 }}
       end={{ x: 1, y: 0.5 }}
-      style={dashboardStyles.topBar}
+      style={[dashboardStyles.topBar, { paddingTop: insets.top + 10 }]}
     >
       <TouchableOpacity
         style={styles.topBackButton}

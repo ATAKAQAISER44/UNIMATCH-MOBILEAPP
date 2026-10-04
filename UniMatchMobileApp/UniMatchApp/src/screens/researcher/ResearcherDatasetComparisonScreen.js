@@ -4,21 +4,24 @@
 // columns do not fit on a phone, so the screen shows:
 //   1. a "position in each ranking" strip for the searched university, and
 //   2. one dataset list at a time (QS / THE / ARWU tabs), each with its own
-//      edition selector — the same data the web shows side by side.
+//      edition selector and pages through every university.
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 import ResearcherLayout from '../../components/researcher/ResearcherLayout';
+import UniversityLink from '../../components/UniversityLink';
 import {
   Card,
   CollapsibleCard,
   EmptyState,
   ErrorBox,
   GradientButton,
+  InlineLoader,
   LoadingBlock,
   MethodologyPanel,
   PageHeader,
+  Pagination,
   RankPill,
   SearchInput,
   SectionHeading,
@@ -35,7 +38,7 @@ import {
 import { fetchResearcherDataset } from '../../services/researcherApi';
 import { shareCSV } from '../../utils/researcherExport';
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 25;
 
 const TAB_OPTIONS = RESEARCHER_DATASET_KEYS.map((key) => ({ value: key, label: RESEARCHER_DATASETS[key].shortName }));
 
@@ -47,6 +50,9 @@ function initialColumns() {
         year: RESEARCHER_DATASETS[key].defaultYear,
         availableYears: [RESEARCHER_DATASETS[key].defaultYear],
         rows: [],
+        page: 1,
+        totalPages: 1,
+        totalCount: 0,
         loading: true,
         error: '',
       },
@@ -70,19 +76,19 @@ export default function ResearcherDatasetComparisonScreen({ navigation }) {
   const debouncedSearch = useDebouncedValue(search.trim());
 
   const loadColumn = useCallback(
-    async (datasetKey, year, searchText) => {
+    async (datasetKey, year, searchText, page = 1) => {
       const requestId = ++requestIds.current[datasetKey];
       const isCurrent = () => requestId === requestIds.current[datasetKey];
 
       setColumns((current) => ({
         ...current,
-        [datasetKey]: { ...current[datasetKey], year, loading: true, error: '' },
+        [datasetKey]: { ...current[datasetKey], year, page, loading: true, error: '' },
       }));
 
       try {
         const data = await fetchResearcherDataset(datasetKey, {
           year,
-          page: 1,
+          page,
           page_size: PAGE_SIZE,
           search: searchText,
         });
@@ -94,6 +100,9 @@ export default function ResearcherDatasetComparisonScreen({ navigation }) {
             year: Number(data.year || year),
             availableYears: data.available_years || [year],
             rows: data.results || [],
+            page: data.page || page,
+            totalPages: data.total_pages || 1,
+            totalCount: data.total_count || 0,
             loading: false,
             error: '',
           },
@@ -161,24 +170,18 @@ export default function ResearcherDatasetComparisonScreen({ navigation }) {
       }}
     >
       <PageHeader
-        eyebrow="Researcher Tools"
         title="Dataset Comparison"
-        subtitle="See QS, THE, and ARWU rankings side by side — pick any edition per dataset and search for a university to see how its position changes when you switch ranking systems."
+        subtitle="Search a university to see its position in QS, THE and ARWU."
       />
 
       <Card>
-        <Text style={styles.label}>Search across all three datasets</Text>
         <SearchInput value={search} onChangeText={setSearch} placeholder="Search university or country..." />
         <GradientButton title="Export CSV" icon="▧" onPress={exportComparison} />
       </Card>
 
       {!!searchKey && (
         <Card>
-          <SectionHeading
-            eyebrow="Position in each ranking"
-            title="Best match per dataset"
-            subtitle="The first matching university in each ranking edition."
-          />
+          <SectionHeading title="Position in each ranking" subtitle="First match in each edition. Tap a row to open its list." />
           {RESEARCHER_DATASET_KEYS.map((key) => {
             const column = columns[key];
             const match = column.rows.find((row) => row.name?.toLowerCase().includes(searchKey)) || column.rows[0];
@@ -196,13 +199,20 @@ export default function ResearcherDatasetComparisonScreen({ navigation }) {
                     {RESEARCHER_DATASETS[key].shortName} {column.year}
                   </Text>
                   {column.loading ? (
-                    <Text style={styles.mutedText}>Loading...</Text>
+                    <InlineLoader style={{ padding: 0 }} />
                   ) : match ? (
                     <>
                       <RankPill rank={match.official_rank} />
-                      <Text style={[styles.rowName, styles.flex1, { fontSize: 12 }]} numberOfLines={2}>
-                        {match.name}
-                      </Text>
+                      <View style={styles.flex1}>
+                        <UniversityLink
+                          name={match.name}
+                          country={match.country}
+                          dataset={key}
+                          rank={match.official_rank}
+                          style={[styles.rowName, { fontSize: 12 }]}
+                          numberOfLines={2}
+                        />
+                      </View>
                     </>
                   ) : (
                     <Text style={[styles.mutedText, styles.flex1]}>Not found in this edition</Text>
@@ -215,8 +225,7 @@ export default function ResearcherDatasetComparisonScreen({ navigation }) {
       )}
 
       <CollapsibleCard
-        eyebrow="Why rankings differ"
-        title="Methodology at a glance"
+        title="Why the rankings differ"
         open={showMethodology}
         onToggle={() => setShowMethodology((value) => !value)}
       >
@@ -250,10 +259,10 @@ export default function ResearcherDatasetComparisonScreen({ navigation }) {
           </View>
         </View>
 
-        <ErrorBox message={active.error} onRetry={() => loadColumn(activeTab, active.year, debouncedSearch)} />
+        <ErrorBox message={active.error} onRetry={() => loadColumn(activeTab, active.year, debouncedSearch, active.page)} />
 
         {active.loading ? (
-          <LoadingBlock text="Loading..." />
+          <LoadingBlock />
         ) : active.rows.length === 0 ? (
           !active.error && <EmptyState text="No universities found." />
         ) : (
@@ -269,9 +278,15 @@ export default function ResearcherDatasetComparisonScreen({ navigation }) {
                 <View style={styles.rowTop}>
                   <RankPill rank={row.official_rank} highlight={Number.isFinite(rank) && rank <= 3} />
                   <View style={styles.flex1}>
-                    <Text style={[styles.rowName, isMatch && { color: '#B45309' }]} numberOfLines={2}>
-                      {row.name}
-                    </Text>
+                    <UniversityLink
+                      name={row.name}
+                      country={row.country}
+                      dataset={activeTab}
+                      rank={row.official_rank}
+                      score={row.overall_score}
+                      style={[styles.rowName, isMatch && { fontWeight: '900', textDecorationLine: 'underline' }]}
+                      numberOfLines={2}
+                    />
                     <Text style={styles.rowSub}>{row.country || 'N/A'}</Text>
                   </View>
                   <View style={styles.rowScoreBox}>
@@ -284,9 +299,17 @@ export default function ResearcherDatasetComparisonScreen({ navigation }) {
           })
         )}
 
-        <Text style={styles.noteText}>
-          Showing the top {PAGE_SIZE} {searchKey ? 'matches' : 'universities'} of {activeInfo.title} {active.year}.
-        </Text>
+        <Pagination
+          page={active.page}
+          totalPages={active.totalPages}
+          onPageChange={(nextPage) => loadColumn(activeTab, active.year, debouncedSearch, nextPage)}
+        />
+
+        {!active.loading && active.totalCount > 0 && (
+          <Text style={styles.noteText}>
+            {active.totalCount} {searchKey ? 'matches' : 'universities'} in {activeInfo.title} {active.year}.
+          </Text>
+        )}
       </Card>
     </ResearcherLayout>
   );

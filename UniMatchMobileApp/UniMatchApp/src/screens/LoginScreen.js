@@ -2,6 +2,7 @@
 // src/screens/LoginScreen.js
 
 import React, { useCallback, useMemo, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
   Text,
@@ -83,6 +84,8 @@ function getUserIdFromSessionData(sessionData) {
 }
 
 export default function LoginScreen({ navigation }) {
+  // Light page: keep content clear of the notch / status bar and home bar.
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -294,7 +297,7 @@ export default function LoginScreen({ navigation }) {
       >
         <ScrollView
           style={styles.page}
-          contentContainerStyle={styles.pageContent}
+          contentContainerStyle={[styles.pageContent, { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 16 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           bounces={false}

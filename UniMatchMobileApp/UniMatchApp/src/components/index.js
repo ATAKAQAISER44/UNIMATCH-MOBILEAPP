@@ -78,11 +78,11 @@ export function SectionHeader({ title, subtitle }) {
 }
 
 // ─── Loading Screen ───────────────────────────────────────────────────────────
-export function LoadingScreen({ message = 'Loading...' }) {
+// Spinner only - no loading text.
+export function LoadingScreen() {
   return (
-    <View style={styles.loadingScreen}>
+    <View style={styles.loadingScreen} accessibilityLabel="Loading">
       <ActivityIndicator size="large" color={COLORS.primary} />
-      <Text style={styles.loadingText}>{message}</Text>
     </View>
   );
 }

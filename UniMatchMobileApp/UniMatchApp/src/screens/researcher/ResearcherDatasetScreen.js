@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 import ResearcherLayout from '../../components/researcher/ResearcherLayout';
+import UniversityLink from '../../components/UniversityLink';
 import {
   Card,
   DatasetYearBar,
@@ -41,8 +42,7 @@ import { shareCSV } from '../../utils/researcherExport';
 
 const VIEW_MODES = [
   { value: 'original', label: 'Original' },
-  { value: 'normalized', label: 'Normalized' },
-  { value: 'both', label: 'Both' },
+  { value: 'normalized', label: 'Normalized (0–1)' },
 ];
 
 const PAGE_SIZE_SELECT = PAGE_SIZE_OPTIONS.map((value) => ({ value, label: `${value} per page` }));
@@ -57,15 +57,6 @@ function IndicatorValue({ values, mode }) {
     return <Text style={[styles.kvValue, { color: styles.rowScore.color }]}>{normalized}</Text>;
   }
 
-  if (mode === 'both') {
-    return (
-      <View>
-        <Text style={styles.kvValue}>{original}</Text>
-        <Text style={styles.kvValueSub}>Norm: {normalized}</Text>
-      </View>
-    );
-  }
-
   return <Text style={styles.kvValue}>{original}</Text>;
 }
 
@@ -77,9 +68,15 @@ const UniversityRow = React.memo(function UniversityRow({ row, metrics, datasetK
       <View style={styles.rowTop}>
         <RankPill rank={row.official_rank} highlight={Number.isFinite(rankNumber) && rankNumber <= 3} />
         <View style={styles.flex1}>
-          <Text style={styles.rowName} numberOfLines={2}>
-            {row.name}
-          </Text>
+          <UniversityLink
+            name={row.name}
+            country={row.country}
+            dataset={datasetKey}
+            rank={row.official_rank}
+            score={row.overall_score}
+            style={styles.rowName}
+            numberOfLines={2}
+          />
           <Text style={styles.rowSub}>
             {row.country || 'N/A'}
             {row.previous_rank ? ` · Previous rank ${row.previous_rank}` : ''}
@@ -284,11 +281,7 @@ export default function ResearcherDatasetScreen({ navigation, route }) {
         setReloadKey((value) => value + 1);
       }}
     >
-      <PageHeader
-        eyebrow="Researcher Dataset Explorer"
-        title={`${datasetInfo.title} ${year}`}
-        subtitle={datasetInfo.description}
-      />
+      <PageHeader title={`${datasetInfo.title} ${year}`} subtitle={datasetInfo.description} />
 
       <DatasetYearBar
         datasetKey={datasetKey}
@@ -308,7 +301,6 @@ export default function ResearcherDatasetScreen({ navigation, route }) {
       />
 
       <Card>
-        <Text style={styles.label}>Search University</Text>
         <SearchInput value={search} onChangeText={changeFilter(setSearch)} placeholder="Search university..." />
 
         <View style={[styles.twoCol, styles.fieldGap]}>
@@ -331,7 +323,7 @@ export default function ResearcherDatasetScreen({ navigation, route }) {
         </View>
 
         <GradientButton
-          title={exporting ? 'Exporting...' : 'Export CSV'}
+          title="Export CSV"
           icon="▧"
           loading={exporting}
           onPress={() => chooseExportScope(() => exportRows(rows, 'dataset-current-page'), exportComplete)}
@@ -340,8 +332,7 @@ export default function ResearcherDatasetScreen({ navigation, route }) {
 
       <Card>
         <SectionHeading
-          eyebrow="Universities"
-          title={loading ? 'Loading dataset...' : `Showing ${firstResult}–${lastResult} of ${totalCount}`}
+          title={loading ? 'Universities' : `${firstResult}–${lastResult} of ${totalCount} universities`}
           right={
             rows.length ? (
               <TouchableOpacity onPress={toggleAll}>
@@ -351,13 +342,13 @@ export default function ResearcherDatasetScreen({ navigation, route }) {
           }
         />
 
-        <Text style={styles.label}>Indicator values</Text>
+        <Text style={styles.label}>Show indicator values as</Text>
         <SegmentedControl options={VIEW_MODES} value={viewMode} onChange={setViewMode} />
 
         <ErrorBox message={error} onRetry={() => setReloadKey((value) => value + 1)} />
 
         {loading ? (
-          <LoadingBlock text="Loading dataset..." />
+          <LoadingBlock />
         ) : rows.length === 0 ? (
           !error && <EmptyState text="No universities found." />
         ) : (
@@ -379,18 +370,11 @@ export default function ResearcherDatasetScreen({ navigation, route }) {
 
         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
-        <Text style={styles.noteText}>
-          QS editions can be switched by year. Normalized values are calculated separately within each edition on
-          a 0–1 scale.
-        </Text>
+        <Text style={styles.noteText}>Tap a card for its indicators. Normalized = rescaled 0–1 within this edition.</Text>
       </Card>
 
       <Card>
-        <SectionHeading
-          eyebrow="Methodology"
-          title={`${RESEARCHER_METHODOLOGY[datasetKey].title} — how it's calculated`}
-          subtitle="Each ranking system weighs indicators differently — this is why the same university can hold a different position in QS, THE, and ARWU at the same time."
-        />
+        <SectionHeading title={`How ${RESEARCHER_METHODOLOGY[datasetKey].title} is calculated`} />
         <MethodologyPanel datasetKey={datasetKey} />
       </Card>
     </ResearcherLayout>

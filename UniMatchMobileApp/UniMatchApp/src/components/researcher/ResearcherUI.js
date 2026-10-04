@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
@@ -17,6 +18,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import PickerModal from '../PickerModal';
 import { authTheme } from '../../styles/authTheme';
@@ -32,13 +34,18 @@ const LOGO = require('../../../assets/images/icon.png');
 
 // ── Top bar ────────────────────────────────────────────────────────────────
 export function ResearcherTopBar({ onBack, onMenu }) {
+  // The bar runs under the status bar / notch; the inset keeps its buttons
+  // clear of it on every device.
+  const insets = useSafeAreaInsets();
+
   return (
     <LinearGradient
       colors={authTheme.gradients.button}
       start={{ x: 0, y: 0.5 }}
       end={{ x: 1, y: 0.5 }}
-      style={styles.topBar}
+      style={[styles.topBar, { paddingTop: insets.top + 10 }]}
     >
+      <StatusBar barStyle="light-content" />
       <TouchableOpacity
         style={styles.topButton}
         activeOpacity={0.82}
@@ -169,10 +176,7 @@ export function GradientButton({ title, onPress, disabled, loading, small, style
         style={[styles.gradientButton, small && styles.gradientButtonSmall]}
       >
         {loading ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <ActivityIndicator size="small" color="#FFFFFF" />
-            <Text style={[styles.gradientButtonText, { marginLeft: 8 }]}>{title}</Text>
-          </View>
+          <ActivityIndicator size="small" color="#FFFFFF" />
         ) : (
           <Text style={[styles.gradientButtonText, small && { fontSize: 11.5 }]}>
             {icon ? `${icon}  ` : ''}
@@ -227,14 +231,23 @@ export function SegmentedControl({ options, value, onChange, style }) {
                 end={{ x: 1, y: 0.5 }}
                 style={styles.segmentFill}
               >
-                <Text style={[styles.segmentText, styles.segmentTextActive]}>{option.label}</Text>
+                <Text
+                  style={[styles.segmentText, styles.segmentTextActive]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                >
+                  {option.label}
+                </Text>
                 {!!option.hint && (
                   <Text style={[styles.segmentHint, styles.segmentHintActive]}>{option.hint}</Text>
                 )}
               </LinearGradient>
             ) : (
               <View style={styles.segmentFill}>
-                <Text style={styles.segmentText}>{option.label}</Text>
+                <Text style={styles.segmentText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                  {option.label}
+                </Text>
                 {!!option.hint && <Text style={styles.segmentHint}>{option.hint}</Text>}
               </View>
             )}
@@ -379,11 +392,20 @@ export function FindingCards({ findings }) {
 }
 
 // ── States ─────────────────────────────────────────────────────────────────
-export function LoadingBlock({ text = 'Loading...' }) {
+// Loading state: spinner only, no text.
+export function LoadingBlock() {
   return (
-    <View style={styles.loadingBox}>
+    <View style={styles.loadingBox} accessibilityRole="progressbar" accessibilityLabel="Loading">
       <ActivityIndicator size="large" color={authTheme.colors.brandTeal} />
-      <Text style={styles.loadingText}>{text}</Text>
+    </View>
+  );
+}
+
+// Small inline spinner (search suggestions, inline values).
+export function InlineLoader({ style }) {
+  return (
+    <View style={[{ padding: 12, alignItems: 'center' }, style]} accessibilityLabel="Loading">
+      <ActivityIndicator size="small" color={authTheme.colors.brandTeal} />
     </View>
   );
 }
@@ -431,6 +453,7 @@ export function Pagination({ page, totalPages, onPageChange }) {
         style={[styles.pageButton, page <= 1 && styles.buttonDisabled]}
         disabled={page <= 1}
         onPress={() => go(1)}
+        accessibilityLabel="First page"
       >
         <Text style={styles.pageButtonText}>«</Text>
       </TouchableOpacity>
@@ -438,23 +461,26 @@ export function Pagination({ page, totalPages, onPageChange }) {
         style={[styles.pageButton, page <= 1 && styles.buttonDisabled]}
         disabled={page <= 1}
         onPress={() => go(page - 1)}
+        accessibilityLabel="Previous page"
       >
-        <Text style={styles.pageButtonText}>‹ Prev</Text>
+        <Text style={styles.pageButtonText}>‹</Text>
       </TouchableOpacity>
-      <Text style={styles.pageInfo}>
-        Page {page} of {totalPages}
+      <Text style={styles.pageInfo} accessibilityLabel={`Page ${page} of ${totalPages}`}>
+        {page} / {totalPages}
       </Text>
       <TouchableOpacity
         style={[styles.pageButton, page >= totalPages && styles.buttonDisabled]}
         disabled={page >= totalPages}
         onPress={() => go(page + 1)}
+        accessibilityLabel="Next page"
       >
-        <Text style={styles.pageButtonText}>Next ›</Text>
+        <Text style={styles.pageButtonText}>›</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.pageButton, page >= totalPages && styles.buttonDisabled]}
         disabled={page >= totalPages}
         onPress={() => go(totalPages)}
+        accessibilityLabel="Last page"
       >
         <Text style={styles.pageButtonText}>»</Text>
       </TouchableOpacity>

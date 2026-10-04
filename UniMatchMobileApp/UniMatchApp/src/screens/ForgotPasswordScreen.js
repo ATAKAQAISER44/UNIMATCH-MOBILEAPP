@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
   Text,
@@ -39,6 +40,8 @@ function ForgotPasswordHeader() {
 }
 
 export default function ForgotPasswordScreen({ navigation }) {
+  // Light page: keep content clear of the notch / status bar and home bar.
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -104,7 +107,7 @@ export default function ForgotPasswordScreen({ navigation }) {
     >
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 16 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >

@@ -1,13 +1,13 @@
 // src/components/researcher/SavedExperimentsPanel.js
 //
-// "My Saved Experiments" list (web: ResearcherSavedExperiments). Load an
-// experiment back into Weight Analysis, open its research report, share its
-// settings as CSV or delete it.
+// Saved Experiments tab of Weight Analysis (web: ResearcherSavedExperiments).
+// Load an experiment back into the Weights tab, open its research report,
+// share its settings as CSV or delete it.
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Alert, Text, View } from 'react-native';
 
-import { CollapsibleCard, EmptyState, GradientButton, OutlineButton } from './ResearcherUI';
+import { Card, EmptyState, GradientButton, OutlineButton, SectionHeading } from './ResearcherUI';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { authTheme } from '../../styles/authTheme';
 import { RESEARCHER_ROUTES } from '../../constants/researcherConstants';
@@ -70,9 +70,7 @@ function shareExperiment(experiment, labelFor) {
   shareCSV(['Setting', 'Value'], rows, `experiment-${experiment.name}.csv`);
 }
 
-export default function SavedExperimentsPanel({ experiments, activeId, onLoad, onDelete, labelFor, navigation }) {
-  const [open, setOpen] = useState(true);
-
+export default function SavedExperimentsPanel({ experiments, activeId, onLoad, onDelete, labelFor, navigation, onCreate }) {
   const confirmDelete = (experiment) => {
     Alert.alert('Delete experiment?', `"${experiment.name}" will be removed from this phone.`, [
       { text: 'Cancel', style: 'cancel' },
@@ -81,14 +79,15 @@ export default function SavedExperimentsPanel({ experiments, activeId, onLoad, o
   };
 
   return (
-    <CollapsibleCard
-      eyebrow="Saved on this phone"
-      title={`My Saved Experiments (${experiments.length})`}
-      open={open}
-      onToggle={() => setOpen((value) => !value)}
-    >
+    <Card>
+      <SectionHeading
+        title="Saved experiments"
+        subtitle="Stored on this phone. Load opens the Weights tab with the experiment's weights."
+      />
       {experiments.length === 0 ? (
-        <EmptyState text='No saved experiments yet. Set your weights, then press "Save as Experiment" to keep them with a name and open them again later.' />
+        <EmptyState text='Nothing saved yet. In the Weights tab, set weights and tap "Save as experiment".'>
+          {onCreate ? <OutlineButton title="Go to Weights" small onPress={onCreate} style={{ marginTop: 10 }} /> : null}
+        </EmptyState>
       ) : (
         experiments.map((experiment) => {
           const isActive = experiment.id === activeId;
@@ -106,7 +105,7 @@ export default function SavedExperimentsPanel({ experiments, activeId, onLoad, o
                 </View>
                 {isActive && (
                   <View style={[styles.pill, { borderColor: authTheme.colors.brandTeal, backgroundColor: authTheme.colors.brandTeal }]}>
-                    <Text style={[styles.pillText, { color: '#FFFFFF' }]}>Open now</Text>
+                    <Text style={[styles.pillText, { color: '#FFFFFF' }]}>Loaded</Text>
                   </View>
                 )}
               </View>
@@ -123,12 +122,12 @@ export default function SavedExperimentsPanel({ experiments, activeId, onLoad, o
                 </Text>
               )}
               <Text style={[styles.noteText, { marginTop: 4 }]}>
-                Saved {formatExperimentDate(experiment.createdAt)} · stability test ±
+                Saved {formatExperimentDate(experiment.createdAt)} · stability ±
                 {Math.round((experiment.variation ?? 0.2) * 100)}%
               </Text>
 
               <View style={[styles.buttonRow, { marginTop: 9 }]}>
-                <GradientButton title="Load" small onPress={() => onLoad(experiment)} />
+                <GradientButton title={isActive ? 'Reload' : 'Load'} small onPress={() => onLoad(experiment)} />
                 <OutlineButton
                   title="Report"
                   small
@@ -147,6 +146,6 @@ export default function SavedExperimentsPanel({ experiments, activeId, onLoad, o
           );
         })
       )}
-    </CollapsibleCard>
+    </Card>
   );
 }

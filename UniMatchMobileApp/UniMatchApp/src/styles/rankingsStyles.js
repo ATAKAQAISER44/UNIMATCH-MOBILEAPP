@@ -2,7 +2,7 @@
 // src/styles/rankingsStyles.js
 
 import { StyleSheet, Platform } from 'react-native';
-import { authTheme } from './authTheme';
+import { authTheme, CONTENT_MAX_WIDTH } from './authTheme';
 
 const colors = authTheme.colors;
 
@@ -143,6 +143,9 @@ export const rankingsStyles = StyleSheet.create({
   },
 
   listContent: {
+    width: '100%',
+    maxWidth: CONTENT_MAX_WIDTH,
+    alignSelf: 'center',
     paddingHorizontal: 12,
     paddingTop: 14,
     paddingBottom: 24,

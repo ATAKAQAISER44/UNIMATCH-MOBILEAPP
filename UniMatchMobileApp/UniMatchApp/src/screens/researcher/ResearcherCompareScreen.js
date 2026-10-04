@@ -9,12 +9,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Text, TouchableOpacity, View } from 'react-native';
 
 import ResearcherLayout from '../../components/researcher/ResearcherLayout';
+import UniversityLink from '../../components/UniversityLink';
 import {
   Card,
   DatasetYearBar,
   EmptyState,
   ErrorBox,
   GradientButton,
+  InlineLoader,
   LoadingBlock,
   PageHeader,
   RankChangeBadge,
@@ -338,9 +340,8 @@ export default function ResearcherCompareScreen({ navigation, route }) {
   return (
     <ResearcherLayout navigation={navigation} activeKey="compare" context={{ dataset: datasetKey, year }}>
       <PageHeader
-        eyebrow="Researcher Compare"
-        title={`${shortName} Compare Universities`}
-        subtitle={`Pick up to ${MAX_SELECTED} universities from the same dataset and edition to compare official ranking indicators, personalized ranking results, and university attributes side by side.`}
+        title="Compare Universities"
+        subtitle={`Up to ${MAX_SELECTED} universities from one ${shortName} edition, side by side.`}
       />
 
       <DatasetYearBar
@@ -367,7 +368,7 @@ export default function ResearcherCompareScreen({ navigation, route }) {
         {!!query.trim() && selected.length < MAX_SELECTED && (
           <View style={styles.suggestionBox}>
             {searchLoading || query.trim() !== debouncedQuery ? (
-              <Text style={[styles.mutedText, { padding: 12 }]}>Searching...</Text>
+              <InlineLoader />
             ) : filteredSuggestions.length === 0 ? (
               <Text style={[styles.mutedText, { padding: 12 }]}>No university found.</Text>
             ) : (
@@ -396,9 +397,14 @@ export default function ResearcherCompareScreen({ navigation, route }) {
             {selected.map((item, index) => (
               <View key={item.university_id} style={styles.chip}>
                 <SlotTag index={index} />
-                <Text style={styles.chipText} numberOfLines={1}>
-                  {item.name}
-                </Text>
+                <UniversityLink
+                  name={item.name}
+                  country={item.country}
+                  dataset={datasetKey}
+                  rank={item.official_rank}
+                  style={styles.chipText}
+                  numberOfLines={1}
+                />
                 <TouchableOpacity
                   style={styles.chipClose}
                   onPress={() => removeUniversity(item.university_id)}
@@ -416,7 +422,7 @@ export default function ResearcherCompareScreen({ navigation, route }) {
 
       {loadingMeta ? (
         <Card>
-          <LoadingBlock text="Loading dataset..." />
+          <LoadingBlock />
         </Card>
       ) : selected.length < 2 ? (
         <Card>
@@ -424,11 +430,7 @@ export default function ResearcherCompareScreen({ navigation, route }) {
         </Card>
       ) : (
         <Card>
-          <SectionHeading
-            eyebrow="Side by side"
-            title="Comparison"
-            subtitle="Green = best value among the selected universities."
-          />
+          <SectionHeading title="Comparison" subtitle="Green = best of the selected." />
           <GradientButton title="Export CSV" icon="▧" small onPress={exportComparison} style={{ marginBottom: 6 }} />
 
           <GroupTitle>Official Ranking</GroupTitle>
@@ -457,24 +459,24 @@ export default function ResearcherCompareScreen({ navigation, route }) {
             />
           ))}
 
-          <GroupTitle>Personalized Ranking (each dataset's own official weights)</GroupTitle>
+          <GroupTitle>Recalculated rank (official weights)</GroupTitle>
           <CompareField
-            label="Personalized Rank"
+            label="Recalculated rank"
             cells={selected.map((item) => {
               const rank = personalizedByUniversity[item.university_id]?.experimental_rank;
               return {
-                text: personalizedLoading ? '...' : rank !== undefined ? `#${rank}` : 'N/A',
+                ...(personalizedLoading ? { node: <InlineLoader style={{ padding: 0 }} /> } : {}),
+                text: rank !== undefined ? `#${rank}` : 'N/A',
                 isBest: Number.isFinite(rank) && rank === best.personalizedRank,
               };
             })}
           />
           <CompareField
-            label="Change vs Official Rank"
+            label="Change vs official"
             cells={selected.map((item) => {
               const change = personalizedByUniversity[item.university_id]?.rank_change;
-              return personalizedLoading || change === undefined
-                ? { text: personalizedLoading ? '...' : 'N/A' }
-                : { node: <RankChangeBadge value={change} /> };
+              if (personalizedLoading) return { node: <InlineLoader style={{ padding: 0 }} /> };
+              return change === undefined ? { text: 'N/A' } : { node: <RankChangeBadge value={change} /> };
             })}
           />
 
@@ -487,7 +489,8 @@ export default function ResearcherCompareScreen({ navigation, route }) {
                 const { loading, value } = attrValue(item, field.key);
                 const numeric = field.direction ? parseNumericValue(value) : null;
                 return {
-                  text: loading ? '...' : value ?? 'N/A',
+                  ...(loading ? { node: <InlineLoader style={{ padding: 0 }} /> } : {}),
+                  text: value ?? 'N/A',
                   isBest: !!field.direction && numeric !== null && numeric === best.perAttribute[field.key],
                 };
               })}

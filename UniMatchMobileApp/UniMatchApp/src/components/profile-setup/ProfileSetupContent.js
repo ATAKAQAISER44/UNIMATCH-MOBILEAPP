@@ -5,7 +5,6 @@ import React from 'react';
 
 import {
   View,
-  Text,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -78,7 +77,6 @@ export default function ProfileSetupContent({
     return (
       <View style={styles.loadingScreen}>
         <ActivityIndicator size="large" color={authTheme.colors.brandTeal} />
-        <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
   }

@@ -2,6 +2,7 @@
 // src/screens/OtpVerificationScreen.js
 
 import React, { useRef, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
   Text,
@@ -71,6 +72,8 @@ function OtpInputRow({ otp, inputRefs, onOtpChange, onKeyPress }) {
 }
 
 export default function OtpVerificationScreen({ navigation, route = {} }) {
+  // Light page: keep content clear of the notch / status bar and home bar.
+  const insets = useSafeAreaInsets();
   const email = route?.params?.email || '';
   const flow = route?.params?.flow || 'signup';
 
@@ -251,7 +254,7 @@ export default function OtpVerificationScreen({ navigation, route = {} }) {
     >
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 16 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -310,9 +313,11 @@ export default function OtpVerificationScreen({ navigation, route = {} }) {
               disabled={isBusy}
               activeOpacity={0.75}
             >
-              <Text style={styles.resendText}>
-                {resending ? 'Sending again...' : 'Resend Code'}
-              </Text>
+              {resending ? (
+                <ActivityIndicator size="small" color={authTheme.colors.brandTeal} />
+              ) : (
+                <Text style={styles.resendText}>Resend Code</Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity

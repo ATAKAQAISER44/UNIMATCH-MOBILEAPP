@@ -1,13 +1,11 @@
 
-import { StyleSheet, Dimensions, Platform, StatusBar } from 'react-native';
+import { StyleSheet, Dimensions, Platform } from 'react-native';
 import { authTheme } from './authTheme';
 
 const { width, height } = Dimensions.get('window');
 
 const CARD_WIDTH = Math.min(width * 0.92, 390);
 const IS_SMALL_HEIGHT = height < 720;
-const ANDROID_STATUS_TOP =
-  Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0;
 
 export const profileSetupStyles = StyleSheet.create({
   safeArea: {
@@ -33,7 +31,8 @@ export const profileSetupStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingHorizontal: 10,
-    paddingTop: Platform.OS === 'ios' ? 14 : ANDROID_STATUS_TOP + 16,
+    // SafeAreaView already adds the status-bar / notch inset.
+    paddingTop: 14,
     paddingBottom: Platform.OS === 'ios' ? 18 : 26,
   },
 

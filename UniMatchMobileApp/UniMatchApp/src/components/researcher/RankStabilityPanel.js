@@ -2,39 +2,44 @@
 //
 // Rank Stability Test (UC-R-03 sensitivity analysis), mobile version of the
 // web's ResearcherRankStability. Uses the weights currently set on the
-// Weight Analysis screen.
+// Weight Analysis screen. The test runs by itself whenever the tab is open
+// and the weights or "How much to change" differ from the last run, so
+// there is no run button.
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import {
   Card,
   CollapsibleCard,
-  EmptyState,
   ErrorBox,
   FindingCards,
-  GradientButton,
+  InlineLoader,
+  LoadingBlock,
   OutlineButton,
   Pagination,
   ProgressBar,
   RankPill,
   SectionHeading,
   SegmentedControl,
-  WarningBox,
+  useLatestRequest,
   usePersistentToggle,
 } from './ResearcherUI';
+import UniversityLink from '../UniversityLink';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { authTheme } from '../../styles/authTheme';
 import { runRankStability } from '../../services/researcherApi';
 import { shareCSV } from '../../utils/researcherExport';
 import { VERDICTS, buildStabilityFindings, describeRow } from '../../utils/researchInsights';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
+// Wait briefly so quick taps / slider moves start only one test.
+const AUTO_RUN_DELAY_MS = 400;
 
 const VARIATIONS = [
-  { value: 0.1, label: 'Small', hint: 'each ±10%' },
-  { value: 0.2, label: 'Medium', hint: 'each ±20%' },
-  { value: 0.3, label: 'Large', hint: 'each ±30%' },
+  { value: 0.1, label: 'Small', hint: '±10%' },
+  { value: 0.2, label: 'Medium', hint: '±20%' },
+  { value: 0.3, label: 'Large', hint: '±30%' },
 ];
 
 const SORTS = [
@@ -128,34 +133,50 @@ export default function RankStabilityPanel({
   onVariationChange,
   labelFor,
   disabled,
+  active = true,
 }) {
   const [stability, setStability] = useState(null);
-  const [testedWeightsKey, setTestedWeightsKey] = useState('');
+  const [testedKey, setTestedKey] = useState('');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState('rank');
-  const [howItWorksOpen, toggleHowItWorks] = usePersistentToggle('researcher-stability-how-it-works-open');
+  const [retryKey, setRetryKey] = useState(0);
+  const [howItWorksOpen, toggleHowItWorks] = usePersistentToggle('researcher-stability-how-it-works-open', false);
+  const startRequest = useLatestRequest();
 
-  const weightsKey = JSON.stringify(weights);
-  const isOutdated = stability && testedWeightsKey !== weightsKey;
+  const runKey = `${JSON.stringify(weights)}|${variation}|${retryKey}`;
 
-  async function runTest() {
-    setRunning(true);
-    setError('');
+  // Run (again) whenever the panel is visible and its inputs changed.
+  useEffect(() => {
+    if (!active || disabled || runKey === testedKey) return undefined;
 
-    try {
-      const data = await runRankStability(datasetKey, { year, weights, variation, top_n: 100 });
-      setStability(data);
-      setTestedWeightsKey(weightsKey);
-      setPage(1);
-    } catch (runError) {
-      setStability(null);
-      setError(runError.message);
-    } finally {
-      setRunning(false);
-    }
-  }
+    const isCurrent = startRequest();
+    const timer = setTimeout(async () => {
+      setRunning(true);
+      setError('');
+
+      try {
+        // top_n: 0 = every university in the edition.
+        const data = await runRankStability(datasetKey, { year, weights, variation, top_n: 0 });
+        if (!isCurrent()) return;
+        setStability(data);
+        setTestedKey(runKey);
+        setPage(1);
+      } catch (runError) {
+        if (!isCurrent()) return;
+        setStability(null);
+        setTestedKey(runKey);
+        setError(runError.message);
+      } finally {
+        if (isCurrent()) setRunning(false);
+      }
+    }, AUTO_RUN_DELAY_MS);
+
+    return () => clearTimeout(timer);
+    // runKey covers weights and variation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, disabled, runKey, testedKey, datasetKey, year, startRequest]);
 
   const sortedResults = useMemo(() => {
     const rows = [...(stability?.results || [])];
@@ -208,21 +229,13 @@ export default function RankStabilityPanel({
     <View>
       <Card>
         <SectionHeading
-          eyebrow="Sensitivity analysis"
-          title="Rank Stability Test"
-          subtitle="Are the experimental ranks trustworthy, or would they change if the weights were slightly different? This test uses the weights you set above."
-          right={stability ? <OutlineButton title="Export CSV" small onPress={exportResults} /> : null}
+          title="Rank stability"
+          subtitle="Would ranks change if your weights were slightly different? Uses the weights from the Weights tab."
+          right={stability && !running ? <OutlineButton title="CSV" small onPress={exportResults} /> : null}
         />
 
-        <Text style={styles.label}>How much to change weights</Text>
-        <SegmentedControl options={VARIATIONS} value={variation} onChange={onVariationChange} />
-
-        <GradientButton
-          title={running ? 'Running 500 tests...' : stability ? 'Run Test Again' : 'Test Rank Stability'}
-          loading={running}
-          disabled={disabled}
-          onPress={runTest}
-        />
+        <Text style={styles.label}>How much to change each weight</Text>
+        <SegmentedControl options={VARIATIONS} value={variation} onChange={onVariationChange} style={{ marginBottom: 0 }} />
       </Card>
 
       <CollapsibleCard title="How does this test work?" open={howItWorksOpen} onToggle={toggleHowItWorks}>
@@ -239,20 +252,18 @@ export default function RankStabilityPanel({
         ))}
       </CollapsibleCard>
 
-      <ErrorBox message={error} />
-
-      {isOutdated ? (
-        <WarningBox message="You changed the weights after this test. Run the test again to see results for the new weights." />
-      ) : null}
+      <ErrorBox message={error} onRetry={() => setRetryKey((value) => value + 1)} />
 
       {!stability ? (
-        !error && (
+        !error &&
+        (running || (active && !disabled)) && (
           <Card>
-            <EmptyState text='Set your weights, choose how much to change them, and press "Test Rank Stability".' />
+            <LoadingBlock />
           </Card>
         )
       ) : (
-        <View style={isOutdated ? { opacity: 0.6 } : null}>
+        <View style={running ? { opacity: 0.5 } : null}>
+          {running && <InlineLoader />}
           <View style={styles.statGrid}>
             {Object.entries(VERDICTS).map(([key, verdict]) => (
               <View
@@ -270,15 +281,14 @@ export default function RankStabilityPanel({
           </View>
 
           <Card>
-            <SectionHeading eyebrow="Key findings" title="What the test shows" />
+            <SectionHeading title="Key findings" />
             <FindingCards findings={findings} />
           </Card>
 
           <Card>
             <SectionHeading
-              eyebrow="University by university"
-              title={`Top ${stability.results.length} universities`}
-              subtitle={`${stability.runs} tests · each weight changed by up to ±${Math.round(stability.variation * 100)}%. "Usual range" = rank in 90% of tests.`}
+              title={`All ${stability.results.length} universities`}
+              subtitle={`${stability.runs} tests, each weight ±${Math.round(stability.variation * 100)}%. "Usual range" = rank in 90% of tests.`}
             />
             <SegmentedControl
               options={SORTS}
@@ -294,9 +304,14 @@ export default function RankStabilityPanel({
                 <View style={styles.rowTop}>
                   <RankPill rank={row.rank} />
                   <View style={styles.flex1}>
-                    <Text style={styles.rowName} numberOfLines={2}>
-                      {row.name}
-                    </Text>
+                    <UniversityLink
+                      name={row.name}
+                      country={row.country}
+                      dataset={datasetKey}
+                      rank={row.rank}
+                      style={styles.rowName}
+                      numberOfLines={2}
+                    />
                     <Text style={styles.rowSub}>{row.country}</Text>
                   </View>
                   <VerdictPill verdict={row.verdict} />
@@ -321,9 +336,8 @@ export default function RankStabilityPanel({
           {stability.indicator_impact.length > 0 && (
             <Card>
               <SectionHeading
-                eyebrow="Which weight matters most?"
-                title="Influence of each weight"
-                subtitle={`Each weight was changed on its own by ±${Math.round(stability.variation * 100)}%. The bar shows how many places the top universities moved on average. Longer bar = choose this weight more carefully.`}
+                title="Which weight matters most"
+                subtitle={`Average places moved when only that weight changes by ±${Math.round(stability.variation * 100)}%. Longer bar = choose it more carefully.`}
               />
               {stability.indicator_impact.map((item) => (
                 <View key={item.key} style={{ marginBottom: 9 }}>

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { dashboardStyles as styles } from '../../styles/dashboardStyles';
 import { authTheme } from '../../styles/authTheme';
@@ -22,6 +23,9 @@ const DashboardHeaderMenu = memo(function DashboardHeaderMenu({
   onProfile,
   onLogout,
 }) {
+  // Drop the menu just below the top bar, which itself sits under the notch.
+  const insets = useSafeAreaInsets();
+
   const handleDashboardPress = () => {
     onClose?.();
     onDashboard?.();
@@ -77,7 +81,7 @@ const DashboardHeaderMenu = memo(function DashboardHeaderMenu({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.menuOverlay} onPress={onClose}>
+      <Pressable style={[styles.menuOverlay, { paddingTop: insets.top + 56 }]} onPress={onClose}>
         <Pressable
           style={styles.menuCard}
           onPress={(event) => event.stopPropagation()}

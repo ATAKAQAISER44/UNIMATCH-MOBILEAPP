@@ -8,6 +8,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import ResearcherLayout from '../../components/researcher/ResearcherLayout';
+import UniversityLink from '../../components/UniversityLink';
 import CorrelationHeatmap from '../../components/researcher/CorrelationHeatmap';
 import {
   Card,
@@ -138,14 +139,10 @@ function IndicatorCard({ row }) {
                   {value ?? 'N/A'}
                 </Text>
                 {label.startsWith('Highest') && row.max_university ? (
-                  <Text style={styles.kvLabel} numberOfLines={2}>
-                    {row.max_university}
-                  </Text>
+                  <UniversityLink name={row.max_university} style={styles.kvLabel} numberOfLines={2} />
                 ) : null}
                 {label.startsWith('Lowest') && row.min_university ? (
-                  <Text style={styles.kvLabel} numberOfLines={2}>
-                    {row.min_university}
-                  </Text>
+                  <UniversityLink name={row.min_university} style={styles.kvLabel} numberOfLines={2} />
                 ) : null}
               </View>
             ))}
@@ -193,10 +190,10 @@ const TERMS = [
 ];
 
 function HowToRead() {
-  const [open, toggle] = usePersistentToggle('researcher-statistics-how-to-read-open');
+  const [open, toggle] = usePersistentToggle('researcher-statistics-how-to-read-open', false);
 
   return (
-    <CollapsibleCard eyebrow="New to statistics?" title="How to read this page" open={open} onToggle={toggle}>
+    <CollapsibleCard title="How to read this page" open={open} onToggle={toggle}>
       <Text style={[styles.mutedText, { marginBottom: 6 }]}>Example: the research score of 6 universities</Text>
       <View style={[styles.table, { marginBottom: 10 }]}>
         {EXAMPLE_SCORES.map(([name, score], index) => (
@@ -364,9 +361,8 @@ export default function ResearcherStatisticsScreen({ navigation, route }) {
       }}
     >
       <PageHeader
-        eyebrow="Researcher Statistical Summary"
-        title={`${datasetInfo.title} ${year}`}
-        subtitle="Summary of every ranking indicator, and which indicators go up and down together."
+        title={`Statistics · ${datasetInfo.shortName} ${year}`}
+        subtitle="Every indicator summarised, and which indicators move together."
       />
 
       <DatasetYearBar
@@ -379,11 +375,13 @@ export default function ResearcherStatisticsScreen({ navigation, route }) {
 
       <Card>
         <SelectField label="Country" title="Country" value={country} options={countryOptions} onChange={setCountry} />
-        <Text style={[styles.mutedText, { marginVertical: 8 }]}>
-          Pick a country to see the summary for its universities only. All numbers use the scores exactly as the
-          ranking published them.
-        </Text>
-        <GradientButton title="Export CSV" icon="▧" onPress={exportStatistics} disabled={!rows.length} />
+        <GradientButton
+          title="Export CSV"
+          icon="▧"
+          onPress={exportStatistics}
+          disabled={!rows.length}
+          style={{ marginTop: 10 }}
+        />
       </Card>
 
       <SegmentedControl
@@ -397,7 +395,7 @@ export default function ResearcherStatisticsScreen({ navigation, route }) {
       {analysisView === 'relationships' ? (
         error ? null : loading || !stats ? (
           <Card>
-            <LoadingBlock text="Calculating relationships..." />
+            <LoadingBlock />
           </Card>
         ) : (
           <CorrelationHeatmap
@@ -427,23 +425,16 @@ export default function ResearcherStatisticsScreen({ navigation, route }) {
 
           {!loading && !error && keyFindings.length > 0 && (
             <Card>
-              <SectionHeading
-                eyebrow="Key findings"
-                title={`What stands out in ${datasetInfo.shortName} ${year}${country !== 'All' ? ` — ${country}` : ''}`}
-              />
+              <SectionHeading title={`Key findings${country !== 'All' ? ` — ${country}` : ''}`} />
               <FindingCards findings={keyFindings} />
             </Card>
           )}
 
           <Card>
-            <SectionHeading
-              eyebrow="Indicator by indicator"
-              title="Summary of every score"
-              subtitle="Each card is one indicator. The last line explains its numbers in plain words."
-            />
+            <SectionHeading title="Indicator by indicator" />
 
             {loading ? (
-              <LoadingBlock text="Calculating statistics..." />
+              <LoadingBlock />
             ) : rows.length === 0 ? (
               !error && <EmptyState text="No universities found." />
             ) : (
