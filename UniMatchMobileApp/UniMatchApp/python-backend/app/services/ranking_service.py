@@ -5,7 +5,7 @@ import pandas as pd
 from fastapi import HTTPException
 
 from app.config.ranking_config import COLUMN_MAP, DATASET_FILES
-from app.services.data_cache import file_version, get_cached
+from app.matching.university_matcher import apply_display_names
 
 
 def normalize_col_name(col):
@@ -59,36 +59,11 @@ def load_dataset(dataset: str):
             detail=f"{dataset} processed file not found",
         )
 
-    # PERF: read each CSV from disk once (re-read only if the file changes).
-    cached = get_cached(
-        ("raw_dataset", dataset),
-        file_version(file_path),
-        lambda: pd.read_csv(file_path),
-    )
-    return cached.copy()
+    return pd.read_csv(file_path)
 
 
 def prepare_dataset(dataset: str):
-    """
-    Returns (df, name_col, country_col, rank_col).
-    PERF: the prepared result depends only on the CSV file, so it is built
-    once and cached; every caller gets its own copy.
-    """
     dataset = dataset.lower()
-
-    if dataset not in DATASET_FILES:
-        raise HTTPException(status_code=400, detail="Invalid dataset")
-
-    version = file_version(DATASET_FILES[dataset])
-    df, name_col, country_col, rank_col = get_cached(
-        ("prepared_dataset", dataset),
-        version,
-        lambda: _build_prepared_dataset(dataset),
-    )
-    return df.copy(), name_col, country_col, rank_col
-
-
-def _build_prepared_dataset(dataset: str):
     df = load_dataset(dataset)
 
     name_col = find_column(df, COLUMN_MAP[dataset]["name"])
@@ -112,6 +87,9 @@ def _build_prepared_dataset(dataset: str):
     df["_rank_numeric"] = df["_rank_numeric"].astype(int)
     df = df.sort_values(by="_rank_numeric", ascending=True)
 
+    # Same university -> same name in QS, THE and ARWU (see app/matching).
+    df = apply_display_names(df, name_col, country_col)
+
     return df, name_col, country_col, rank_col
 
 
@@ -131,8 +109,7 @@ def apply_country_and_search(df, country_col, name_col, country, search):
             regex=False,
         )
 
-        # Also find a university by the name this ranking originally used
-        # (only present on researcher views, which show unified names).
+        # Also find a university by the name this ranking originally used.
         if "source_name" in df.columns:
             name_match = name_match | df["source_name"].astype(str).str.lower().str.contains(
                 query,

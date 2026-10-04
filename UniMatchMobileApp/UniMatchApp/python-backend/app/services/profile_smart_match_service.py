@@ -2,12 +2,8 @@ from pathlib import Path
 import re
 import pandas as pd
 
-from app.services.data_cache import file_version, get_cached
+from app.matching.university_matcher import resolve_uni_id
 
-
-import os
-
-DEBUG_LOGS = os.getenv("UNIMATCH_DEBUG") == "1"
 
 ATTRIBUTE_FILE = Path("data/processed/university_attributes_processed.csv")
 
@@ -139,23 +135,22 @@ def load_attribute_dataset():
     if not ATTRIBUTE_FILE.exists():
         raise FileNotFoundError("university_attributes_processed.csv not found")
 
-    # PERF: read once, re-read only when the CSV file changes.
-    cached = get_cached(
-        ("smart_match_attributes",),
-        file_version(ATTRIBUTE_FILE),
-        lambda: pd.read_csv(ATTRIBUTE_FILE),
-    )
-    return cached.copy()
-
-
-def attributes_file_version():
-    return file_version(ATTRIBUTE_FILE)
+    return pd.read_csv(ATTRIBUTE_FILE)
 
 
 def clean_join_name(value):
+    """
+    Stronger university-name key used only for joining ranking rows with the
+    attributes dataset. This keeps the original display name unchanged, but
+    makes common variants match, for example:
+    - University of Engineering & Technology Lahore
+    - University of Engineering & Technology (UET) Lahore
+    """
     value = norm(value)
     value = value.replace("&", "and")
+    value = re.sub(r"\([^)]*\)", " ", value)  # remove abbreviations like (UET), (NUML)
     value = re.sub(r"\bthe\b", "", value)
+    value = re.sub(r"\bof\b", " of ", value)
     value = re.sub(r"[^a-z0-9]+", " ", value)
     value = re.sub(r"\s+", " ", value)
     return value.strip()
@@ -196,57 +191,163 @@ def merge_with_attributes(ranking_df, ranking_name_col=None):
         )
 
     if ranking_name_col and attr_name_col:
-        ranking_temp = ranking_df.copy()
-        attr_temp = attr_df.copy()
-
-        ranking_temp["_join_name"] = ranking_temp[ranking_name_col].apply(clean_join_name)
-        attr_temp["_join_name"] = attr_temp[attr_name_col].apply(clean_join_name)
-
-        attr_temp = attr_temp.drop_duplicates(subset=["_join_name"])
-
-        name_merged = ranking_temp.merge(
-            attr_temp,
-            on="_join_name",
-            how="left",
-            suffixes=("", "_attr_name"),
+        # Pass 1: shared university id from app/matching (handles different
+        # spellings across rankings). Pass 2: cleaned name, as before, fills
+        # whatever pass 1 could not match.
+        ranking_ids = (
+            ranking_df["uni_id"].tolist()
+            if "uni_id" in ranking_df.columns
+            else [resolve_uni_id(name) for name in ranking_df[ranking_name_col]]
         )
+        attr_countries = attr_df["Country"] if "Country" in attr_df.columns else [None] * len(attr_df)
+        attr_ids = [
+            resolve_uni_id(name, country)
+            for name, country in zip(attr_df[attr_name_col], attr_countries)
+        ]
 
-        for col in attr_df.columns:
-            if col in ["university_id", attr_name_col, "_join_name"]:
-                continue
+        merged = _fill_attributes_by_key(
+            merged, ranking_df, attr_df, attr_name_col, ranking_ids, attr_ids
+        )
+        merged = _fill_attributes_by_key(
+            merged,
+            ranking_df,
+            attr_df,
+            attr_name_col,
+            ranking_df[ranking_name_col].apply(clean_join_name).tolist(),
+            attr_df[attr_name_col].apply(clean_join_name).tolist(),
+        )
+        if "source_name" in ranking_df.columns:
+            # Pass 3: the name this ranking originally used.
+            merged = _fill_attributes_by_key(
+                merged,
+                ranking_df,
+                attr_df,
+                attr_name_col,
+                ranking_df["source_name"].apply(clean_join_name).tolist(),
+                attr_df[attr_name_col].apply(clean_join_name).tolist(),
+            )
 
-            direct_col = col
-            suffix_col = f"{col}_attr_name"
+    return merged
 
-            source_col = None
 
-            if suffix_col in name_merged.columns:
-                source_col = suffix_col
-            elif direct_col in name_merged.columns:
-                source_col = direct_col
+def _fill_attributes_by_key(merged, ranking_df, attr_df, attr_name_col, ranking_keys, attr_keys):
+    ranking_temp = ranking_df.copy()
+    attr_temp = attr_df.copy()
 
-            if not source_col:
-                continue
+    ranking_temp["_join_name"] = [key if key else None for key in ranking_keys]
+    attr_temp["_join_name"] = [key if key else None for key in attr_keys]
 
-            if col not in merged.columns:
-                merged[col] = name_merged[source_col].values
-            else:
-                merged[col] = merged[col].combine_first(name_merged[source_col])
+    attr_temp = attr_temp.dropna(subset=["_join_name"]).drop_duplicates(subset=["_join_name"])
+
+    name_merged = ranking_temp.merge(
+        attr_temp,
+        on="_join_name",
+        how="left",
+        suffixes=("", "_attr_name"),
+    )
+
+    for col in attr_df.columns:
+        if col in ["university_id", attr_name_col, "_join_name"]:
+            continue
+
+        direct_col = col
+        suffix_col = f"{col}_attr_name"
+
+        source_col = None
+
+        if suffix_col in name_merged.columns:
+            source_col = suffix_col
+        elif direct_col in name_merged.columns:
+            source_col = direct_col
+
+        if not source_col:
+            continue
+
+        if col not in merged.columns:
+            merged[col] = name_merged[source_col].values
+        else:
+            merged[col] = merged[col].combine_first(name_merged[source_col])
 
     return merged
 
 
 def normalize_degree(value):
-    value = norm(value)
+    value = tokenize(value)
+    compact = re.sub(r"[^a-z0-9]+", "", value)
 
-    if value in ["bs", "bachelor", "bachelors", "bachelor's", "undergraduate"]:
-        return ["bs", "bachelor", "bachelors", "undergraduate"]
+    if not value:
+        return []
 
-    if value in ["ms", "master", "masters", "master's", "postgraduate"]:
-        return ["ms", "msc", "master", "masters", "postgraduate"]
+    if ("leading" in value and "phd" in value) or compact == "integratedmsphd":
+        return [
+            "ms leading to phd",
+            "integrated ms phd",
+            "integrated ms",
+            "phd track",
+            "ms",
+            "msc",
+            "master",
+            "masters",
+            "postgraduate",
+            "phd",
+            "doctoral",
+            "doctorate",
+        ]
 
-    if value in ["phd", "doctorate", "doctoral", "ms leading to phd"]:
-        return ["phd", "doctorate", "doctoral", "ms leading to phd"]
+    if (
+        value in {"ba", "bs", "bsc", "bed", "beng", "bcom", "honours", "honors"}
+        or "bachelor" in value
+        or "undergraduate" in value
+    ):
+        return [
+            "ba",
+            "bs",
+            "bsc",
+            "bed",
+            "beng",
+            "bcom",
+            "bachelor",
+            "bachelors",
+            "undergraduate",
+            "honours",
+            "honors",
+        ]
+
+    if (
+        value in {"ma", "ms", "msc", "mba", "mphil"}
+        or "master" in value
+        or "postgraduate" in value
+        or value == "graduate"
+    ):
+        return [
+            "ma",
+            "ms",
+            "msc",
+            "mba",
+            "mphil",
+            "master",
+            "masters",
+            "postgraduate",
+            "graduate",
+            "taught postgraduate",
+            "postgraduate coursework",
+            "postgraduate research",
+        ]
+
+    if (
+        "phd" in value
+        or "doctor" in value
+        or value in {"dphil", "dba"}
+    ):
+        return [
+            "phd",
+            "phd track",
+            "doctoral",
+            "doctorate",
+            "dphil",
+            "dba",
+            "research postgraduate",
+        ]
 
     return [value]
 
@@ -254,37 +355,85 @@ def normalize_degree(value):
 def normalize_field(value):
     value = norm(value)
 
+    # Broad but controlled aliases. This is only used to decide whether a
+    # university should be considered a relevant match for the selected field.
+    # It does not change the stored dataset values.
     mapping = {
         "computer science": [
             "computer science",
-            "computer science and engineering",
             "computer sciences",
+            "computer science and engineering",
+            "computing",
+            "school of computing",
+            "informatics",
+            "information technology",
+            "software engineering",
+            "computer engineering",
+            "data science",
+            "artificial intelligence",
+            "machine learning",
+            "cyber security",
+            "cybersecurity",
+            "information security",
         ],
         "software engineering": [
             "software engineering",
+            "computer science",
+            "computer science and engineering",
+            "computing",
+            "information technology",
         ],
         "data science": [
             "data science",
             "data analytics",
+            "analytics",
+            "business analytics",
+            "computer science",
+            "computing",
+            "artificial intelligence",
+            "machine learning",
         ],
         "artificial intelligence": [
             "artificial intelligence",
             "machine learning",
+            "ai",
+            "data science",
+            "computer science",
+            "computing",
+            "robotics",
         ],
         "cyber security": [
             "cyber security",
             "cybersecurity",
             "information security",
+            "computer security",
+            "network security",
+            "it security",
+            "digital forensics",
+            "information assurance",
+            "computer science",
+            "computing",
+            "information technology",
         ],
         "business administration": [
             "business administration",
+            "business",
+            "management",
             "bba",
+            "mba",
         ],
-        "engineering": ["engineering"],
-        "biology": ["biology", "biological sciences"],
-        "economics": ["economics"],
+        "engineering": [
+            "engineering",
+            "computer engineering",
+            "electrical engineering",
+            "mechanical engineering",
+            "civil engineering",
+            "chemical engineering",
+        ],
+        "biology": ["biology", "biological sciences", "life sciences"],
+        "economics": ["economics", "economy"],
         "psychology": ["psychology"],
-        "political science": ["political science"],
+        "political science": ["political science", "politics", "international relations"],
     }
 
     return mapping.get(value, [value])
@@ -332,56 +481,70 @@ def degree_matches(row, degree_col, intended_degree):
     if not intended_degree:
         return True
 
+    # Do not remove a university only because the merged dataset has missing
+    # degree information. If degree data exists, it must match.
     if not degree_col:
-        return False
+        return True
 
-    return contains_any(row.get(degree_col), normalize_degree(intended_degree))
+    university_degree = row.get(degree_col)
+    if not norm(university_degree):
+        return True
+
+    return contains_any(university_degree, normalize_degree(intended_degree))
 
 
 def program_matches(row, program_col, field_of_study):
     if not field_of_study:
         return True
 
+    # Same rule as degree: missing program data should not kill the result.
+    # Existing program data still has to match the selected field/aliases.
     if not program_col:
-        return False
+        return True
 
-    return contains_any(row.get(program_col), normalize_field(field_of_study))
+    university_program = row.get(program_col)
+    if not norm(university_program):
+        return True
+
+    return contains_any(university_program, normalize_field(field_of_study))
 
 
 def cgpa_matches(row, cgpa_col, user_cgpa):
     if user_cgpa is None:
         return True
 
+    # Practical profile attributes are soft filters. Missing dataset values
+    # should not hide otherwise relevant universities.
     if not cgpa_col:
-        return False
+        return True
 
     required = parse_number(row.get(cgpa_col))
 
     if required is None:
-        return False
+        return True
 
     return float(user_cgpa) >= float(required)
 
 
 def test_matches(row, tests_col, user_tests):
     if not user_tests:
-        return True, ["You have not added a test score, so tests were not checked"]
+        return True, ["No standardized test provided, so this optional field was ignored"]
 
     if not tests_col:
-        return True, ["Test requirements are not available for this university"]
+        return True, ["Test requirement data is not available, so it was not used as a blocker"]
 
     required_tests = norm(row.get(tests_col))
 
     if not required_tests or required_tests in ["none", "not required", "optional", "no"]:
-        return True, ["No specific test is required"]
+        return True, ["No strict standardized test requirement found"]
 
     user_test_names = [norm(test.get("test_name")) for test in user_tests]
 
     for test_name in user_test_names:
         if test_name and test_name in required_tests:
-            return True, [f"Your {test_name.upper()} score is accepted here"]
+            return True, [f"Your {test_name.upper()} test matches the requirement"]
 
-    return False, ["Your tests do not match this university's requirement"]
+    return False, ["Your provided test does not match this university requirement"]
 
 
 def get_country_value(row, country_col):
@@ -423,11 +586,82 @@ def region_matches(row, region_col, country_col, preferred_region):
 
 
 def country_matches(row, country_col, preferred_country):
-    if not preferred_country or preferred_country == "All":
+    """
+    Preferred country can be a single country or multiple countries.
+    For multiple selected countries, this is an OR filter:
+    a university passes if its country matches ANY selected country.
+    The country soft-filter should only become a blocker when none of the
+    selected countries has a matching university after mandatory filters.
+    """
+    selected_countries = split_profile_countries(preferred_country)
+
+    if not selected_countries or "all" in selected_countries:
         return True
 
     row_country = norm(get_country_value(row, country_col))
-    return row_country == norm(preferred_country)
+
+    # Missing country data should not become a false blocker. If country data
+    # exists and does not match, then the university is filtered out.
+    if not row_country:
+        return True
+
+    return row_country in selected_countries
+
+
+def split_profile_countries(value):
+    if value is None:
+        return []
+
+    if isinstance(value, (list, tuple, set)):
+        raw_items = value
+    else:
+        raw_items = re.split(r"[,;/|]+", str(value))
+
+    return [norm(item) for item in raw_items if norm(item)]
+
+
+def get_user_home_country(profile):
+    candidates = [
+        profile.get("country"),
+        (profile.get("user") or {}).get("country"),
+        (profile.get("user_profile") or {}).get("country"),
+        (profile.get("profile") or {}).get("country"),
+        (profile.get("personal") or {}).get("country"),
+        (profile.get("basic") or {}).get("country"),
+    ]
+
+    for candidate in candidates:
+        if norm(candidate):
+            return norm(candidate)
+
+    return ""
+
+
+def choose_tuition_column(row, tuition_local_col, tuition_international_col, country_col, profile):
+    home_country = get_user_home_country(profile or {})
+    university_country = norm(get_country_value(row, country_col))
+
+    if home_country and university_country and home_country == university_country and tuition_local_col:
+        return tuition_local_col, "local"
+
+    geographic = (profile or {}).get("geographic", {}) or {}
+    preferred_countries = split_profile_countries(geographic.get("preferred_country"))
+
+    if (
+        home_country
+        and home_country in preferred_countries
+        and university_country in ["", home_country]
+        and tuition_local_col
+    ):
+        return tuition_local_col, "local"
+
+    if tuition_international_col:
+        return tuition_international_col, "international"
+
+    if tuition_local_col:
+        return tuition_local_col, "local"
+
+    return None, "not_available"
 
 
 def tuition_matches(row, tuition_col, max_tuition):
@@ -435,13 +669,16 @@ def tuition_matches(row, tuition_col, max_tuition):
         return True
 
     if not tuition_col:
-        return False
+        return True
 
     tuition = parse_number(row.get(tuition_col))
     max_tuition = parse_number(max_tuition)
 
-    if tuition is None or max_tuition is None:
-        return False
+    if max_tuition is None:
+        return True
+
+    if tuition is None:
+        return True
 
     return float(tuition) <= float(max_tuition)
 
@@ -451,13 +688,16 @@ def living_cost_matches(row, living_col, tolerance):
         return True
 
     if not living_col:
-        return False
+        return True
 
     living = parse_number(row.get(living_col))
     tolerance = parse_number(tolerance)
 
-    if living is None or tolerance is None:
-        return False
+    if tolerance is None:
+        return True
+
+    if living is None:
+        return True
 
     return float(living) <= float(tolerance)
 
@@ -472,9 +712,17 @@ def scholarship_matches(row, scholarship_col, requirement):
         return True
 
     if not scholarship_col:
-        return False
+        return True
 
     value = norm(row.get(scholarship_col))
+
+    # Unknown scholarship data should not hide the university. Explicitly
+    # negative values still fail when the user requires scholarship.
+    if not value or value in ["n/a", "na", "not available", "unknown"]:
+        return True
+
+    if value in ["no", "false", "0", "not offered", "not available"]:
+        return False
 
     return value in [
         "yes",
@@ -485,20 +733,25 @@ def scholarship_matches(row, scholarship_col, requirement):
         "fully funded",
         "partial",
         "partial scholarship",
-    ]
+        "merit based",
+        "need based",
+    ] or "scholarship" in value or "fund" in value
 
 
 def apply_filter(df, check_func):
-    # PERF: the same per-row check as before, but the passing rows are
-    # selected with a boolean mask instead of rebuilding a new DataFrame
-    # from a Python list of row Series (which was the slow part).
-    mask = [bool(check_func(row)) for _, row in df.iterrows()]
-    failed_count = mask.count(False)
+    passed_rows = []
+    failed_count = 0
 
-    if failed_count == len(mask):
+    for _, row in df.iterrows():
+        if check_func(row):
+            passed_rows.append(row)
+        else:
+            failed_count += 1
+
+    if not passed_rows:
         return df.iloc[0:0].copy(), failed_count
 
-    return df[mask], failed_count
+    return pd.DataFrame(passed_rows), failed_count
 
 
 def count_failures(df, filters):
@@ -516,26 +769,9 @@ def count_failures(df, filters):
     return stats
 
 
-# Readable filter names for messages shown in the app (display text only).
-FILTER_LABELS = {
-    "cgpa": "CGPA",
-    "tests": "test score",
-    "country": "preferred country",
-    "max_tuition": "maximum tuition fee",
-    "living_cost": "living cost",
-    "scholarship": "scholarship",
-    "degree": "degree level",
-    "program": "field of study",
-}
-
-
-def readable_filter_name(name):
-    return FILTER_LABELS.get(str(name or ""), str(name or "").replace("_", " "))
-
-
 def build_empty_analysis(original_count, filter_stats, failed_filter, ignored_filters=None):
     ignored_filters = ignored_filters or []
-    readable_filter = readable_filter_name(failed_filter)
+    readable_filter = str(failed_filter or "").replace("_", " ")
 
     return {
         "original_count": int(original_count),
@@ -544,27 +780,15 @@ def build_empty_analysis(original_count, filter_stats, failed_filter, ignored_fi
         "can_ignore": True,
         "removed_filters": ignored_filters,
         "message": (
-            f"Universities offering your degree level and field of study were found, "
-            f"but none of them meet your {readable_filter} requirement. You can show "
-            f"results without the {readable_filter} filter, or update it in your profile."
+            f"Your selected degree and program are available, but the {readable_filter} "
+            f"filter is too restrictive. You can show results without the {readable_filter} "
+            "filter, or update this value in your profile."
         ),
     }
 
 
-def build_smart_matches(
-    ranking_df,
-    name_col,
-    country_col,
-    rank_col,
-    profile,
-    top_n=50,
-    merged_df=None,
-):
-    # PERF: main.py passes an already-merged (cached) DataFrame when available.
-    if merged_df is not None:
-        df = merged_df
-    else:
-        df = merge_with_attributes(ranking_df, name_col)
+def build_smart_matches(ranking_df, name_col, country_col, rank_col, profile, top_n=None):
+    df = merge_with_attributes(ranking_df, name_col)
 
     original_count = len(df)
 
@@ -629,7 +853,20 @@ def build_smart_matches(
         "eligibility_cgpa",
     ])
 
-    tuition_col = find_col(df, [
+    tuition_local_col = find_col(df, [
+        "Tuition (Local/Domestic)",
+        "Tuition_LocalDomestic",
+        "Tuition_Fee_local",
+        "tuition_fee_local",
+        "tuition_local_domestic",
+        "tuition_local",
+        "local_tuition_fee",
+        "domestic_tuition_fee",
+        "local_fee",
+        "domestic_fee",
+    ])
+
+    tuition_international_col = find_col(df, [
         "Tuition (International)",
         "Tuition_International",
         "Tuition_Fee_international",
@@ -706,21 +943,35 @@ def build_smart_matches(
         "employment_rate",
     ])
 
-    if DEBUG_LOGS:
-        print("SMART MATCH DETECTED COLUMNS:")
-        print({
-            "degree_col": degree_col,
-            "program_col": program_col,
-            "cgpa_col": cgpa_col,
-            "tuition_col": tuition_col,
-            "living_col": living_col,
-            "scholarship_col": scholarship_col,
-            "region_col": region_col,
-            "tests_col": tests_col,
-            "acceptance_rate_col": acceptance_rate_col,
-            "employability_col": employability_col,
-            "ignored_filters": list(ignored_filters),
-        })
+    def selected_tuition(row):
+        return choose_tuition_column(
+            row,
+            tuition_local_col,
+            tuition_international_col,
+            country_col,
+            profile,
+        )
+
+    def selected_tuition_value(row):
+        selected_col, _ = selected_tuition(row)
+        return row.get(selected_col) if selected_col else None
+
+    print("SMART MATCH DETECTED COLUMNS:")
+    print({
+        "degree_col": degree_col,
+        "program_col": program_col,
+        "cgpa_col": cgpa_col,
+        "tuition_local_col": tuition_local_col,
+        "tuition_international_col": tuition_international_col,
+        "user_home_country": get_user_home_country(profile),
+        "living_col": living_col,
+        "scholarship_col": scholarship_col,
+        "region_col": region_col,
+        "tests_col": tests_col,
+        "acceptance_rate_col": acceptance_rate_col,
+        "employability_col": employability_col,
+        "ignored_filters": list(ignored_filters),
+    })
 
     ignored_filters = set(profile.get("_ignored_filters", []) or [])
 
@@ -768,7 +1019,7 @@ def build_smart_matches(
         ("cgpa", lambda row: cgpa_matches(row, cgpa_col, user_cgpa)),
         ("tests", lambda row: test_matches(row, tests_col, tests)[0]),
         ("country", lambda row: country_matches(row, country_col, preferred_country)),
-        ("max_tuition", lambda row: tuition_matches(row, tuition_col, max_tuition)),
+        ("max_tuition", lambda row: tuition_matches(row, selected_tuition(row)[0], max_tuition)),
         ("living_cost", lambda row: living_cost_matches(row, living_col, living_tolerance)),
         ("scholarship", lambda row: scholarship_matches(row, scholarship_col, scholarship_requirement)),
     ]
@@ -803,9 +1054,9 @@ def build_smart_matches(
             "can_ignore": False,
             "removed_filters": list(ignored_filters),
             "message": (
-                "Showing results without these filters: "
-                + ", ".join(readable_filter_name(item) for item in ignored_filters)
-                + ". Your degree level and field of study are still applied."
+                "Showing results after ignoring: "
+                + ", ".join(str(item).replace("_", " ") for item in ignored_filters)
+                + ". Degree and program are still mandatory."
             ),
         }
 
@@ -818,43 +1069,47 @@ def build_smart_matches(
         reasons = []
 
         if region_matches(row, region_col, country_col, preferred_region):
-            reasons.append(f"Located in your preferred region: {preferred_region}")
+            reasons.append(f"Region check passed: {preferred_region}")
 
         if preferred_country and country_matches(row, country_col, preferred_country):
-            reasons.append(f"Located in your preferred country: {preferred_country}")
+            matched_country = get_country_value(row, country_col)
+            reasons.append(f"Country check passed: {matched_country}")
 
         if "degree" in ignored_filters:
-            reasons.append("You chose to skip the degree level filter")
+            reasons.append("Degree filter was ignored by your choice")
         elif degree_matches(row, degree_col, intended_degree):
-            reasons.append(f"Offers your intended degree: {intended_degree}")
+            reasons.append(f"Degree check passed: {intended_degree}")
 
         if "program" in ignored_filters:
-            reasons.append("You chose to skip the field of study filter")
+            reasons.append("Program filter was ignored by your choice")
         elif program_matches(row, program_col, field_of_study):
-            reasons.append(f"Offers your field of study: {field_of_study}")
+            reasons.append(f"Program check passed: {field_of_study}")
 
         if "cgpa" in ignored_filters:
-            reasons.append("You chose to skip the CGPA filter")
+            reasons.append("CGPA filter was ignored by your choice")
         elif cgpa_matches(row, cgpa_col, user_cgpa):
-            reasons.append(f"Your CGPA ({user_cgpa}) meets the minimum requirement")
+            reasons.append(f"CGPA check passed: your CGPA is {user_cgpa}")
 
         if "max_tuition" in ignored_filters:
-            reasons.append("You chose to skip the maximum tuition fee filter")
-        elif tuition_matches(row, tuition_col, max_tuition):
-            reasons.append(f"Tuition fee is within your budget (up to {max_tuition} USD/year)")
+            reasons.append("Tuition filter was ignored by your choice")
+        elif tuition_matches(row, selected_tuition(row)[0], max_tuition):
+            _, tuition_type = selected_tuition(row)
+            reasons.append(
+                f"Tuition check passed using {tuition_type} tuition: within your max budget {max_tuition}"
+            )
 
         if "living_cost" in ignored_filters:
-            reasons.append("You chose to skip the living cost filter")
+            reasons.append("Living cost filter was ignored by your choice")
         elif living_cost_matches(row, living_col, living_tolerance):
-            reasons.append(f"Living cost is within your limit (up to {living_tolerance} USD/year)")
+            reasons.append(f"Living cost check passed: within your tolerance {living_tolerance}")
 
         if "scholarship" in ignored_filters:
-            reasons.append("You chose to skip the scholarship filter")
+            reasons.append("Scholarship filter was ignored by your choice")
         elif scholarship_matches(row, scholarship_col, scholarship_requirement):
-            reasons.append("Matches your funding preference")
+            reasons.append("Scholarship check passed")
 
         if "tests" in ignored_filters:
-            reasons.append("You chose to skip the test score filter")
+            reasons.append("Standardized test filter was ignored by your choice")
         else:
             reasons.extend(test_reasons)
 
@@ -874,7 +1129,10 @@ def build_smart_matches(
         rows,
         key=lambda item: item["match_score"],
         reverse=True,
-    )[:top_n]
+    )
+
+    if isinstance(top_n, int) and top_n > 0:
+        rows = rows[:top_n]
 
     results = []
 
@@ -921,9 +1179,9 @@ def build_smart_matches(
         university_country = get_country_value(row, country_col)
 
         match_type = (
-            f"Match without: {', '.join(readable_filter_name(item) for item in ignored_filters)}"
+            f"Strict Match except {', '.join(str(item).replace('_', ' ') for item in ignored_filters)}"
             if ignored_filters
-            else "Full Match"
+            else "Strict Match"
         )
 
         results.append({
@@ -960,7 +1218,9 @@ def build_smart_matches(
                 },
                 "tuition": {
                     "user": safe_value(max_tuition),
-                    "university": safe_value(row.get(tuition_col)),
+                    "university": safe_value(selected_tuition_value(row)),
+                    "type": safe_value(selected_tuition(row)[1]),
+                    "home_country": safe_value(get_user_home_country(profile)),
                 },
                 "living_cost": {
                     "user": safe_value(living_tolerance),

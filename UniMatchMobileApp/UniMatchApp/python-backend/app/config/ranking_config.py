@@ -53,6 +53,6 @@ DATASET_METRICS = {
 
 DATASET_PUBLISHED = {
     "qs": "May 2025",
-    "the": "May 2025",
-    "arwu": "May 2025",
+    "the": "2024",
+    "arwu": "August 2025",
 }

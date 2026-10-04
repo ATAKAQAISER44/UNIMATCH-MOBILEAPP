@@ -5,18 +5,6 @@ from app.researcher.dataset_service import load_researcher_dataset
 from app.services.scoring_service import keep_allowed_weights, normalize_weights
 
 
-def _text(value) -> str:
-    """Empty string for missing values (NaN / None), otherwise the text."""
-    if value is None:
-        return ""
-    try:
-        if pd.isna(value):
-            return ""
-    except (TypeError, ValueError):
-        pass
-    return str(value)
-
-
 def indicator_values(view: dict, df: pd.DataFrame, metrics) -> pd.DataFrame:
     """0-1 normalized value of each weighted indicator, empty cells filled with the median."""
     columns = {}
@@ -104,10 +92,9 @@ def build_weight_analysis(dataset: str, year: int | None, weights: dict, top_n: 
 
         results.append(
             {
-                "university_id": _text(row.get("university_id")),
-                "name": _text(row.get(view["name_col"])),
-                # Some ARWU rows have no country; NaN is not valid JSON.
-                "country": _text(row.get(view["country_col"]))
+                "university_id": row.get("university_id", ""),
+                "name": row.get(view["name_col"], ""),
+                "country": row.get(view["country_col"], "")
                 if view["country_col"]
                 else "",
                 "official_rank": official_rank,

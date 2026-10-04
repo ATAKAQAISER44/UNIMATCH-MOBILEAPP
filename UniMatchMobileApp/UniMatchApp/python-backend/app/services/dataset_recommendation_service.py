@@ -11,15 +11,32 @@ def normalize_degree(degree: str) -> str:
     if not degree:
         return "Master"
 
-    degree = degree.strip().lower()
+    normalized = degree.strip().lower().replace("’", "'")
+    compact = "".join(ch for ch in normalized if ch.isalnum())
 
-    if degree in ["bs", "bachelor", "bachelors", "undergraduate"]:
+    if ("leading" in normalized and "phd" in normalized) or compact == "integratedmsphd":
+        return "PhD"
+
+    if (
+        normalized in {"b", "ba", "bs", "bsc", "bed", "beng", "bcom", "honours", "honors"}
+        or "bachelor" in normalized
+        or "undergraduate" in normalized
+    ):
         return "Bachelor"
 
-    if degree in ["ms", "master", "masters", "postgraduate"]:
+    if (
+        normalized in {"m", "ma", "ms", "msc", "mba", "mphil"}
+        or "master" in normalized
+        or "postgraduate" in normalized
+        or normalized == "graduate"
+    ):
         return "Master"
 
-    if degree in ["phd", "doctorate", "ms leading to phd"]:
+    if (
+        "phd" in normalized
+        or "doctor" in normalized
+        or normalized in {"dphil", "dba"}
+    ):
         return "PhD"
 
     return "Master"

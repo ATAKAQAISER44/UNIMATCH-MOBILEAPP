@@ -15,17 +15,6 @@ from app.services.profile_smart_match_service import (
 )
 
 
-# Readable sort names for the explanation shown in the app (display only).
-SORT_LABELS = {
-    "official_rank": "official rank",
-    "tuition": "tuition fee",
-    "living_cost": "living cost",
-    "cgpa": "CGPA requirement",
-    "acceptance_rate": "acceptance rate",
-    "employability": "graduate employability",
-}
-
-
 FIELD_COLUMNS = {
     "region": ["Region", "region", "continent"],
     "country": ["Country", "country", "Location", "location"],
@@ -55,6 +44,8 @@ FIELD_COLUMNS = {
         "Tuition (International)",
         "Tuition_International",
         "Tuition_Fee_international",
+        "Tuition Fee international",
+        "Tuition Fee International",
         "tuition_fee_international",
         "tuition_international",
     ],
@@ -62,12 +53,14 @@ FIELD_COLUMNS = {
         "Living Cost (Annual)",
         "Living_Cost_Annual",
         "Living_Cost",
+        "Living Cost",
         "living_cost",
         "cost_of_living",
     ],
     "scholarship": [
         "Scholarship (Yes/No)",
         "Scholarship_YesNo",
+        "Scholarship YesNo",
         "scholarship_yes_no",
         "scholarship",
         "scholarship_available",
@@ -121,6 +114,24 @@ def normalize_text(value):
     return str(value).strip().lower()
 
 
+def normalize_choice(value):
+    return normalize_text(value).replace("_", "-").replace(" ", "-")
+
+
+def is_yes_like(value):
+    text = normalize_text(value)
+    return text in {"yes", "y", "true", "1", "available", "allowed", "offered"} or any(
+        token in text for token in ["available", "scholarship", "funded", "financial aid"]
+    )
+
+
+def is_no_like(value):
+    text = normalize_text(value)
+    return text in {"no", "n", "false", "0", "not available", "not offered", "none"} or any(
+        token in text for token in ["not available", "no scholarship", "self-funded", "self funded"]
+    )
+
+
 def compare_numeric(row_value, operator, user_value):
     left = parse_number(row_value)
     right = parse_number(user_value)
@@ -171,7 +182,7 @@ def custom_filter_matches(row, filter_item, cols, country_col):
         return region_matches(row, cols.get("region"), country_col, value)
 
     if field == "country":
-        return compare_text(get_country_value(row, country_col), "=", value)
+        return compare_text(get_country_value(row, country_col), operator or "=", value)
 
     if field == "degree":
         if not col:
@@ -192,15 +203,16 @@ def custom_filter_matches(row, filter_item, cols, country_col):
         if not col:
             return False
 
-        wanted = normalize_text(value)
+        wanted = normalize_choice(value)
+        university_value = row.get(col)
 
-        if wanted in ["yes", "available", "required", "scholarship-supported", "fully funded"]:
-            return scholarship_matches(row, col, "Scholarship-supported")
+        if wanted in ["yes", "available", "required", "scholarship-supported", "fully-funded"]:
+            return scholarship_matches(row, col, "Scholarship-supported") or is_yes_like(university_value)
 
-        if wanted in ["no", "not required", "self-funded", "self funded"]:
-            return True
+        if wanted in ["no", "not-required", "self-funded"]:
+            return is_no_like(university_value)
 
-        return compare_text(row.get(col), "=", value)
+        return compare_text(university_value, operator or "=", value)
 
     return True
 
@@ -214,22 +226,23 @@ def apply_custom_filters(df, filters, cols, country_col):
         if not field:
             continue
 
-        # PERF: same per-row check, but select rows with a boolean mask
-        # instead of rebuilding a DataFrame from a list of row Series.
-        mask = [
-            bool(custom_filter_matches(row, filter_item, cols, country_col))
-            for _, row in filtered.iterrows()
-        ]
-        failed_count = mask.count(False)
+        passed_rows = []
+        failed_count = 0
+
+        for _, row in filtered.iterrows():
+            if custom_filter_matches(row, filter_item, cols, country_col):
+                passed_rows.append(row)
+            else:
+                failed_count += 1
 
         filter_stats[field] = int(failed_count)
 
-        if failed_count == len(mask):
+        if not passed_rows:
             return filtered.iloc[0:0].copy(), filter_stats
 
-        filtered = filtered[mask]
+        filtered = pd.DataFrame(passed_rows).reset_index(drop=True)
 
-    return filtered, filter_stats
+    return filtered.reset_index(drop=True), filter_stats
 
 
 def get_sort_value(row, sort_by, cols):
@@ -331,14 +344,9 @@ def build_custom_explore_results(
     filters,
     sort_by="official_rank",
     sort_order="asc",
-    top_n=50,
-    merged_df=None,
+    top_n=0,
 ):
-    # PERF: main.py passes an already-merged (cached) DataFrame when available.
-    if merged_df is not None:
-        df = merged_df
-    else:
-        df = merge_with_attributes(ranking_df, name_col)
+    df = merge_with_attributes(ranking_df, name_col)
     cols = get_cols(df)
 
     filters = filters or []
@@ -354,11 +362,18 @@ def build_custom_explore_results(
         return [], {
             "original_count": int(len(df)),
             "filter_stats": filter_stats,
-            "message": "No universities match all of your filters. Try removing a filter or making one less strict.",
+            "message": "No universities matched your custom filters. Remove or relax one filter.",
         }
 
     filtered_df = sort_dataframe(filtered_df, sort_by, sort_order, cols)
-    filtered_df = filtered_df.head(top_n)
+
+    try:
+        safe_top_n = int(top_n) if top_n is not None else 0
+    except (TypeError, ValueError):
+        safe_top_n = 0
+
+    if safe_top_n > 0:
+        filtered_df = filtered_df.head(safe_top_n)
 
     results = []
 
@@ -379,9 +394,8 @@ def build_custom_explore_results(
             "official_score": None,
             "match_type": "Custom Explore Match",
             "reasons": [
-                "Matches all the filters you selected.",
-                f"Sorted by {SORT_LABELS.get(sort_by, str(sort_by).replace('_', ' '))} "
-                f"({'high to low' if sort_order == 'desc' else 'low to high'}).",
+                "Matched your manually selected custom filters.",
+                f"Sorted by {str(sort_by).replace('_', ' ')} ({sort_order}).",
             ],
             "evidence": {
                 "region": {

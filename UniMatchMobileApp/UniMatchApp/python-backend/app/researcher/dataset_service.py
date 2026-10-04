@@ -15,8 +15,6 @@ from app.preprocessing.utils import (
     min_max_normalize,
     standardize_column_names,
 )
-from app.config.ranking_config import DATASET_FILES
-from app.services.data_cache import file_version, get_cached
 from app.services.ranking_service import (
     apply_country_and_search,
     clean_rank_value,
@@ -71,40 +69,10 @@ def load_researcher_dataset(dataset: str, year: int | None):
             detail=f"{dataset.upper()} {selected_year} dataset is not available",
         )
 
-    # PERF (mobile): every researcher screen calls this, and building a view
-    # means reading CSVs and normalizing every indicator. The view only
-    # depends on the files on disk, so it is built once per dataset/year and
-    # rebuilt automatically when one of those files changes.
-    view = get_cached(
-        ("researcher_view", dataset, selected_year),
-        _view_version(dataset, selected_year),
-        lambda: _build_view(dataset, selected_year),
-    )
-
-    # Callers may add columns to the DataFrame, so each one gets its own copy.
-    return {**view, "df": view["df"].copy()}, selected_year, years
-
-
-def _build_view(dataset: str, year: int):
     if dataset == "qs":
-        return _load_historical_qs(year)
+        return _load_historical_qs(selected_year), selected_year, years
 
-    return _load_current_dataset(dataset)
-
-
-def _view_version(dataset: str, year: int):
-    matching_dir = Path(__file__).resolve().parents[2] / "data" / "matching"
-    matching = (
-        file_version(matching_dir / "universities.csv"),
-        file_version(matching_dir / "university_aliases.csv"),
-    )
-
-    if dataset == "qs":
-        path = _historical_files("qs").get(year)
-        return (file_version(path) if path else 0.0, *matching)
-
-    raw_path = PREPROCESSORS[dataset][1]
-    return (file_version(DATASET_FILES[dataset]), file_version(raw_path), *matching)
+    return _load_current_dataset(dataset), selected_year, years
 
 
 def build_dataset_response(
@@ -247,10 +215,6 @@ def _load_historical_qs(year: int):
 
 def _load_current_dataset(dataset: str):
     df, name_col, country_col, rank_col = prepare_dataset(dataset)
-    # Same university -> same name in QS, THE and ARWU (see app/matching).
-    # Applied here (not in the shared prepare_dataset) so the existing student
-    # ranking screens of the mobile app keep their current names.
-    df = apply_display_names(df, name_col, country_col)
     overall_col = OVERALL_SCORE_COLUMN.get(dataset)
     range_columns = list(DATASET_METRICS[dataset])
     if overall_col and overall_col in df.columns:

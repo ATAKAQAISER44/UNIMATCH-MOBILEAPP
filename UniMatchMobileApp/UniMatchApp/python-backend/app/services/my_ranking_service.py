@@ -6,8 +6,8 @@ import pandas as pd
 from fastapi import HTTPException
 
 from app.config.ranking_config import DATASET_METRICS
+from app.matching.university_matcher import resolve_uni_id
 from app.services.scoring_service import keep_allowed_weights
-from app.services.data_cache import file_version, get_cached
 
 ATTRIBUTE_FILE = Path("data/processed/university_attributes_processed.csv")
 
@@ -201,6 +201,8 @@ RAW_ATTRIBUTE_COLUMNS_FOR_UI = [
     "city",
     "tuition_fee_local",
     "tuition_fee_international",
+    "tuition_fee",
+    "tuition_fee_type",
     "living_cost",
     "scholarship",
     "scholarship_link",
@@ -497,6 +499,33 @@ def _profile_value(profile: dict, *paths):
     return None
 
 
+def _profile_home_country(profile: dict):
+    return _profile_value(
+        profile,
+        ("user", "country"),
+        ("user_profile", "country"),
+        ("profile", "country"),
+        ("personal", "country"),
+        ("basic", "country"),
+        ("country",),
+    )
+
+
+def _same_country(left: Any, right: Any) -> bool:
+    left_key = _clean_key(left)
+    right_key = _clean_key(right)
+    return bool(left_key and right_key and left_key == right_key)
+
+
+def _choose_tuition_fee_value(row: pd.Series, home_country: Any):
+    university_country = row.get("country")
+
+    if _same_country(home_country, university_country):
+        return row.get("tuition_fee_local"), "local"
+
+    return row.get("tuition_fee_international"), "international"
+
+
 def _profile_tests(profile: dict) -> list[str]:
     tests = (
         _profile_value(profile, ("tests",), ("academic", "tests"), ("test_scores",))
@@ -537,26 +566,54 @@ def _contains_match(user_value: Any, university_value: Any) -> float:
 
 
 def _degree_score(user_degree: Any, uni_degree_value: Any) -> float:
-    uni_text = " ".join(_split_values(uni_degree_value))
-    user_degree = str(user_degree or "").strip().lower()
+    uni_items = [str(item or "").strip().lower().replace("’", "'") for item in _split_values(uni_degree_value)]
+    user_degree = str(user_degree or "").strip().lower().replace("’", "'")
 
-    if not user_degree or not uni_text:
+    if not user_degree or not uni_items:
         return 0.5
 
-    has_bs = any(x in uni_text for x in ["bs", "bachelor", "undergraduate"])
-    has_ms = any(x in uni_text for x in ["ms", "master", "postgraduate"])
-    has_phd = any(x in uni_text for x in ["phd", "doctorate"])
+    def compact(value: str) -> str:
+        return "".join(ch for ch in value if ch.isalnum())
 
-    if "leading" in user_degree and "phd" in user_degree:
+    compact_items = {compact(item) for item in uni_items}
+    uni_text = " ".join(uni_items)
+
+    has_bs = any(
+        item in compact_items
+        for item in {"b", "ba", "bs", "bsc", "bed", "beng", "bcom", "honours", "honors"}
+    ) or any(term in uni_text for term in ["bachelor", "undergraduate"])
+
+    has_ms = any(
+        item in compact_items
+        for item in {"m", "ma", "ms", "msc", "mba", "mphil"}
+    ) or any(term in uni_text for term in ["master", "postgraduate", "graduate"])
+
+    has_phd = any(
+        item in compact_items
+        for item in {"phd", "dphil", "dba"}
+    ) or any(term in uni_text for term in ["doctoral", "doctorate"])
+
+    compact_user_degree = compact(user_degree)
+
+    if ("leading" in user_degree and "phd" in user_degree) or compact_user_degree == "integratedmsphd":
         return (0.7 if has_ms else 0.0) + (0.3 if has_phd else 0.0)
 
-    if user_degree in {"bs", "bachelor", "bachelors", "undergraduate"}:
+    if (
+        compact_user_degree in {"b", "ba", "bs", "bsc", "bed", "beng", "bcom", "honours", "honors"}
+        or "bachelor" in user_degree
+        or "undergraduate" in user_degree
+    ):
         return 1.0 if has_bs else 0.0
 
-    if user_degree in {"ms", "master", "masters", "postgraduate"}:
+    if (
+        compact_user_degree in {"m", "ma", "ms", "msc", "mba", "mphil"}
+        or "master" in user_degree
+        or "postgraduate" in user_degree
+        or user_degree == "graduate"
+    ):
         return 1.0 if has_ms else 0.0
 
-    if "phd" in user_degree or "doctor" in user_degree:
+    if "phd" in user_degree or "doctor" in user_degree or compact_user_degree in {"dphil", "dba"}:
         return 1.0 if has_phd else 0.0
 
     return 0.5
@@ -589,6 +646,10 @@ def _make_name_key(value: Any) -> str:
 
 
 def _make_full_key(name: Any, country: Any) -> str:
+    # Matched universities share one id across QS/THE/ARWU/attributes.
+    uni_id = resolve_uni_id(name, country)
+    if uni_id:
+        return uni_id
     return f"{_clean_key(name)}|{_clean_key(country)}"
 
 
@@ -606,17 +667,6 @@ def load_attribute_dataset() -> pd.DataFrame:
             detail="data/processed/university_attributes_processed.csv not found",
         )
 
-    # PERF: the loaded + key-prepared attribute table does not depend on the
-    # user, so build it once and reuse it (rebuilt only if the CSV changes).
-    cached = get_cached(
-        ("my_ranking_attributes",),
-        file_version(ATTRIBUTE_FILE),
-        _build_attribute_dataset,
-    )
-    return cached.copy()
-
-
-def _build_attribute_dataset() -> pd.DataFrame:
     try:
         df = pd.read_csv(ATTRIBUTE_FILE, encoding="utf-8")
     except UnicodeDecodeError:
@@ -677,9 +727,10 @@ def build_attribute_scores(attribute_df: pd.DataFrame, profile: dict) -> pd.Data
         profile,
         ("geographic", "preferred_country"),
         ("geographic", "preferred_countries"),
-        ("country",),
         ("preferred_country",),
     )
+
+    home_country = _profile_home_country(profile)
 
     user_region = _profile_value(
         profile,
@@ -698,17 +749,22 @@ def build_attribute_scores(attribute_df: pd.DataFrame, profile: dict) -> pd.Data
     df["employability_rate_score"] = _higher_is_better(df["employability_rate"])
     df["gender_equality_score"] = _gender_equality_score(df["gender_equality"])
 
-    if user_country:
-        country_match = df["country"].apply(
-            lambda value: _contains_match(user_country, value)
-        )
-        df["tuition_fee_score"] = df["tuition_fee_international_score"]
-        df.loc[country_match == 1.0, "tuition_fee_score"] = df.loc[
-            country_match == 1.0,
-            "tuition_fee_local_score",
-        ]
-    else:
-        df["tuition_fee_score"] = df["tuition_fee_international_score"]
+    tuition_choice = df.apply(
+        lambda row: _choose_tuition_fee_value(row, home_country),
+        axis=1,
+        result_type="expand",
+    )
+    df["tuition_fee"] = tuition_choice[0]
+    df["tuition_fee_type"] = tuition_choice[1]
+
+    home_country_match = df["country"].apply(
+        lambda value: 1.0 if _same_country(home_country, value) else 0.0
+    )
+    df["tuition_fee_score"] = df["tuition_fee_international_score"]
+    df.loc[home_country_match == 1.0, "tuition_fee_score"] = df.loc[
+        home_country_match == 1.0,
+        "tuition_fee_local_score",
+    ]
 
     min_cgpa = _numeric_series(df["cgpa_requirement"])
 
@@ -747,43 +803,13 @@ def build_attribute_scores(attribute_df: pd.DataFrame, profile: dict) -> pd.Data
         lambda value: _contains_match(user_region, value)
     )
 
-    # PERF: these join keys are already prepared by load_attribute_dataset();
-    # only build them if a caller passed a table without them.
-    if "_attr_name_key" not in df.columns:
-        df["_attr_name_key"] = df["university_name"].apply(_make_name_key)
-    if "_attr_full_key" not in df.columns:
-        df["_attr_full_key"] = df.apply(
-            lambda row: _make_full_key(row.get("university_name"), row.get("country")),
-            axis=1,
-        )
+    df["_attr_name_key"] = df["university_name"].apply(_make_name_key)
+    df["_attr_full_key"] = df.apply(
+        lambda row: _make_full_key(row.get("university_name"), row.get("country")),
+        axis=1,
+    )
 
     return df
-
-
-# Readable names for official ranking metrics (same labels the app shows
-# in the weight controls). Display text only - scoring is unaffected.
-RANKING_METRIC_LABELS = {
-    "Academic_Reputation_Score": "Academic Reputation",
-    "Employer_Reputation_Score": "Employer Reputation",
-    "Faculty_Student_Score": "Faculty-Student Ratio",
-    "Citations_per_Faculty_Score": "Citations per Faculty",
-    "International_Faculty_Score": "International Faculty Ratio",
-    "International_Students_Score": "International Student Ratio",
-    "International_Research_Network_Score": "International Research Network",
-    "Employment_Outcomes_Score": "Employment Outcomes",
-    "Sustainability_Score": "Sustainability",
-    "scores_teaching": "Teaching",
-    "scores_research": "Research Environment",
-    "scores_citations": "Research Quality (Citations)",
-    "scores_industry_income": "Industry Income",
-    "scores_international_outlook": "International Outlook",
-    "Alumni": "Alumni Awards",
-    "Award": "Staff Awards",
-    "Hi_Ci": "Highly Cited Researchers",
-    "NS": "Nature & Science Papers",
-    "PUB": "Publications",
-    "PCP": "Per Capita Performance",
-}
 
 
 def _make_ranking_breakdown(row: pd.Series, ranking_weights: dict) -> list[dict]:
@@ -795,9 +821,7 @@ def _make_ranking_breakdown(row: pd.Series, ranking_weights: dict) -> list[dict]
         rows.append(
             {
                 "key": key,
-                "label": RANKING_METRIC_LABELS.get(
-                    key, key.replace("_", " ").title()
-                ),
+                "label": key.replace("_", " ").title(),
                 "score": round(float(score), 4),
                 "weight": round(float(weight), 4),
                 "contribution": round(float(score) * float(weight), 4),
@@ -819,6 +843,11 @@ def _make_attribute_breakdown(row: pd.Series, attribute_weights: dict) -> list[d
         score = _json_safe_float(score, 0.5)
         raw_key = key.replace("_score", "")
         source_value = _json_safe_value(row.get(raw_key, ""), "")
+
+        if key == "tuition_fee_score":
+            tuition_type = _json_safe_value(row.get("tuition_fee_type", ""), "")
+            if tuition_type:
+                source_value = f"{source_value} ({tuition_type})" if source_value else tuition_type
 
         rows.append(
             {
@@ -883,7 +912,9 @@ def _merge_ranking_with_attributes(
 
     df["_rank_name_key"] = df[name_col].apply(_make_name_key)
     df["_rank_full_key"] = df.apply(
-        lambda row: _make_full_key(
+        lambda row: row.get("uni_id")
+        if isinstance(row.get("uni_id"), str) and row.get("uni_id")
+        else _make_full_key(
             row.get(name_col),
             row.get(country_col) if country_col else "",
         ),
@@ -915,14 +946,24 @@ def _merge_ranking_with_attributes(
         col for col in attribute_score_cols if col in merged.columns
     ]
 
-    if existing_attribute_score_cols:
-        missing_mask = merged[existing_attribute_score_cols].isna().all(axis=1)
-    elif attribute_score_cols:
-        missing_mask = pd.Series(True, index=merged.index)
-    else:
-        missing_mask = pd.Series(False, index=merged.index)
+    # Name fallbacks: the shown name first, then the name this ranking
+    # originally used (before app/matching gave it a shared display name).
+    name_key_cols = ["_rank_name_key"]
+    if "source_name" in df.columns:
+        df["_rank_source_name_key"] = df["source_name"].apply(_make_name_key)
+        name_key_cols.append("_rank_source_name_key")
 
-    if missing_mask.any():
+    for name_key_col in name_key_cols:
+        if existing_attribute_score_cols:
+            missing_mask = merged[existing_attribute_score_cols].isna().all(axis=1)
+        elif attribute_score_cols:
+            missing_mask = pd.Series(True, index=merged.index)
+        else:
+            missing_mask = pd.Series(False, index=merged.index)
+
+        if not missing_mask.any():
+            break
+
         attrs_name = (
             attr_scores[keep_cols]
             .drop_duplicates("_attr_name_key", keep="first")
@@ -934,7 +975,7 @@ def _merge_ranking_with_attributes(
 
         fallback = fallback_source.merge(
             attrs_name,
-            left_on="_rank_name_key",
+            left_on=name_key_col,
             right_on="_attr_name_key",
             how="left",
             suffixes=("", "_attr"),
@@ -1078,18 +1119,6 @@ def build_my_ranking_results(
     ).fillna(0.0)
 
     merged = merged.sort_values(by="final_score", ascending=False).reset_index(drop=True)
-
-    # PERF: the app asks for top_n results (TOP_N = 50), but every university
-    # used to be serialized (1,500-2,600 rows, up to ~7 MB of JSON per call).
-    # Scores and ordering are computed on the full table above, so the top
-    # rows are exactly the same as before - only the unused tail is dropped.
-    try:
-        top_n_value = int(top_n)
-    except (TypeError, ValueError):
-        top_n_value = 0
-
-    if top_n_value > 0:
-        merged = merged.head(top_n_value)
 
     results = []
 
