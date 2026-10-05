@@ -85,6 +85,18 @@ const countryOptions = [
   'United States',
 ].sort();
 
+const DUPLICATE_EMAIL_MESSAGE = 'An account with this email already exists. Please log in instead.';
+
+// Raw Supabase / network errors as messages a user can act on.
+function friendlySignUpError(error) {
+  const raw = error?.message || '';
+  if (/already registered|already exists|duplicate/i.test(raw)) return DUPLICATE_EMAIL_MESSAGE;
+  if (/rate limit|too many|security purposes/i.test(raw)) return 'Too many attempts. Please wait a minute and try again.';
+  if (/failed to fetch|network|load failed/i.test(raw)) return 'Could not reach the server. Check your internet connection and try again.';
+  if (/invalid.*email|unable to validate email/i.test(raw)) return 'Please enter a valid email address.';
+  return raw || 'Something went wrong. Please try again.';
+}
+
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&]).{8,}$/;
 const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
 // Letters (Latin incl. accents, Urdu/Arabic, Hindi), spaces, apostrophes,
@@ -466,13 +478,10 @@ export default function SignUpScreen({ navigation }) {
         .eq('email', cleanEmail)
         .maybeSingle();
 
-      if (existingUserError) {
-        showMessage(existingUserError.message);
-        return;
-      }
-
-      if (existingUser) {
-        showMessage('An account with this email already exists.');
+      // The users table may not be readable before sign-in; Supabase's own
+      // answer below is the reliable check, so only stop on a real match.
+      if (existingUser && !existingUserError) {
+        showMessage(DUPLICATE_EMAIL_MESSAGE);
         return;
       }
 
@@ -491,7 +500,14 @@ export default function SignUpScreen({ navigation }) {
       });
 
       if (error) {
-        showMessage(error.message);
+        showMessage(friendlySignUpError(error));
+        return;
+      }
+
+      // For an email that is already registered Supabase does not return an
+      // error: it returns a user with no identities and sends no code.
+      if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        showMessage(DUPLICATE_EMAIL_MESSAGE);
         return;
       }
 
