@@ -99,18 +99,19 @@ function friendlySignUpError(error) {
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&]).{8,}$/;
 const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
-// Letters (Latin incl. accents, Urdu/Arabic, Hindi), spaces, apostrophes,
-// hyphens and dots. No digits or other symbols.
-const NAME_REGEX = /^[A-Za-z\u00C0-\u024F\u0600-\u06FF\u0900-\u097F .'-]+$/;
+// Letters (Latin incl. accents, Urdu/Arabic, Hindi), digits, spaces,
+// apostrophes, hyphens and dots. Digits are fine, but not a name of only digits.
+const NAME_REGEX = /^[A-Za-z0-9\u00C0-\u024F\u0600-\u06FF\u0900-\u097F .'-]+$/;
 const NAME_LETTER_REGEX = /[A-Za-z\u00C0-\u024F\u0600-\u06FF\u0900-\u097F]/g;
 
 // Error text for a full name, or '' when it is valid.
 export function validateFullName(value) {
   const name = String(value || '').trim().replace(/\s+/g, ' ');
   if (!name) return 'Please enter your full name.';
-  if (/\d/.test(name)) return 'Name cannot contain numbers.';
-  if (!NAME_REGEX.test(name)) return 'Name can only contain letters, spaces, hyphens and apostrophes.';
-  if ((name.match(NAME_LETTER_REGEX) || []).length < 2) return 'Please enter your real full name.';
+  if (!NAME_REGEX.test(name)) return 'Name can only contain letters, numbers, spaces, hyphens and apostrophes.';
+  const letters = (name.match(NAME_LETTER_REGEX) || []).length;
+  if (!letters) return 'Name cannot be only numbers. Please include letters.';
+  if (letters < 2) return 'Please enter your real full name.';
   if (name.length > 50) return 'Name must be 50 characters or fewer.';
   return '';
 }
@@ -557,8 +558,7 @@ export default function SignUpScreen({ navigation }) {
               <FieldInput
                 label="Full Name"
                 value={form.fullName}
-                // Digits are never part of a name, so they are not typed in at all.
-                onChangeText={(value) => setField('fullName', value.replace(/[0-9]/g, ''))}
+                onChangeText={(value) => setField('fullName', value)}
                 maxLength={50}
                 placeholder="Enter your full name"
                 autoCapitalize="words"
