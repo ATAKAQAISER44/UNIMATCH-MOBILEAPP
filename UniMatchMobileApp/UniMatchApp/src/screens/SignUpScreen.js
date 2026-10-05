@@ -86,7 +86,23 @@ const countryOptions = [
 ].sort();
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&]).{8,}$/;
-const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
+const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
+// Letters (Latin incl. accents, Urdu/Arabic, Hindi), spaces, apostrophes,
+// hyphens and dots. No digits or other symbols.
+const NAME_REGEX = /^[A-Za-z\u00C0-\u024F\u0600-\u06FF\u0900-\u097F .'-]+$/;
+const NAME_LETTER_REGEX = /[A-Za-z\u00C0-\u024F\u0600-\u06FF\u0900-\u097F]/g;
+const MIN_AGE = 13;
+
+// Error text for a full name, or '' when it is valid.
+export function validateFullName(value) {
+  const name = String(value || '').trim().replace(/\s+/g, ' ');
+  if (!name) return 'Please enter your full name.';
+  if (/\d/.test(name)) return 'Name cannot contain numbers.';
+  if (!NAME_REGEX.test(name)) return 'Name can only contain letters, spaces, hyphens and apostrophes.';
+  if ((name.match(NAME_LETTER_REGEX) || []).length < 2) return 'Please enter your real full name.';
+  if (name.length > 50) return 'Name must be 50 characters or fewer.';
+  return '';
+}
 const DOB_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
 
 function getPasswordStrength(password) {
@@ -148,6 +164,14 @@ function isValidRealDate(value) {
   );
 }
 
+function ageOn(value) {
+  const [year, month, day] = value.split('-').map(Number);
+  const today = new Date();
+  let age = today.getFullYear() - year;
+  if (today.getMonth() + 1 < month || (today.getMonth() + 1 === month && today.getDate() < day)) age -= 1;
+  return age;
+}
+
 function isFutureDate(value) {
   const [year, month, day] = value.split('-').map(Number);
   const dobDate = new Date(year, month - 1, day);
@@ -166,6 +190,7 @@ function FieldInput({
   autoCorrect = false,
   rightElement,
   editable = true,
+  maxLength,
 }) {
   return (
     <View style={styles.fieldWrapper}>
@@ -182,6 +207,7 @@ function FieldInput({
           autoCapitalize={autoCapitalize}
           autoCorrect={autoCorrect}
           editable={editable}
+          maxLength={maxLength}
           style={[styles.input, rightElement ? styles.inputWithRight : null]}
         />
 
@@ -368,8 +394,9 @@ export default function SignUpScreen({ navigation }) {
     const email = form.email.trim().toLowerCase();
     const normalizedDob = normalizeDobValue(form.dateOfBirth);
 
-    if (!form.fullName.trim()) {
-      showMessage('Please enter your full name.');
+    const nameError = validateFullName(form.fullName);
+    if (nameError) {
+      showMessage(nameError);
       return false;
     }
 
@@ -415,6 +442,16 @@ export default function SignUpScreen({ navigation }) {
       return false;
     }
 
+    if (Number(normalizedDob.slice(0, 4)) < 1900) {
+      showMessage('Please enter a valid date of birth.');
+      return false;
+    }
+
+    if (ageOn(normalizedDob) < MIN_AGE) {
+      showMessage(`You must be at least ${MIN_AGE} years old to create an account.`);
+      return false;
+    }
+
     if (!form.language) {
       showMessage('Please select your preferred language for study.');
       return false;
@@ -438,7 +475,7 @@ export default function SignUpScreen({ navigation }) {
     setMessage('');
 
     const cleanEmail = form.email.trim().toLowerCase();
-    const cleanFullName = form.fullName.trim();
+    const cleanFullName = form.fullName.trim().replace(/\s+/g, ' ');
     const databaseDateOfBirth = normalizeDobValue(form.dateOfBirth);
 
     try {
@@ -523,7 +560,9 @@ export default function SignUpScreen({ navigation }) {
               <FieldInput
                 label="Full Name"
                 value={form.fullName}
-                onChangeText={(value) => setField('fullName', value)}
+                // Digits are never part of a name, so they are not typed in at all.
+                onChangeText={(value) => setField('fullName', value.replace(/[0-9]/g, ''))}
+                maxLength={50}
                 placeholder="Enter your full name"
                 autoCapitalize="words"
                 editable={!loading}

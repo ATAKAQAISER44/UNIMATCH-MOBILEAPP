@@ -58,7 +58,12 @@ function OtpInputRow({ otp, inputRefs, onOtpChange, onKeyPress }) {
           onChangeText={(value) => onOtpChange(value, index)}
           onKeyPress={(event) => onKeyPress(event, index)}
           keyboardType="number-pad"
-          maxLength={1}
+          // Not 1: a pasted (or auto-filled) code must reach onChangeText whole,
+          // otherwise only its first digit arrives.
+          maxLength={OTP_LENGTH}
+          textContentType="oneTimeCode"
+          autoComplete={index === 0 ? 'sms-otp' : 'off'}
+          selectTextOnFocus
           style={styles.otpInput}
           textAlign="center"
           autoCorrect={false}
@@ -88,13 +93,16 @@ export default function OtpVerificationScreen({ navigation, route = {} }) {
   const otpType = flow === 'forgot-password' ? 'recovery' : 'email';
   const isBusy = loading || resending;
 
+  // Sign Up replaces itself with this screen, so going back would land on
+  // Login; open Sign Up explicitly instead.
   const handleBack = () => {
-    if (navigation?.canGoBack?.()) {
-      navigation.goBack();
+    if (flow === 'forgot-password') {
+      if (navigation?.canGoBack?.()) navigation.goBack();
+      else navigation.replace('ForgotPassword');
       return;
     }
 
-    navigation.navigate(flow === 'forgot-password' ? 'ForgotPassword' : 'SignUp', undefined, { pop: true });
+    navigation.replace('SignUp');
   };
 
   const clearMessagesIfNeeded = () => {
@@ -112,22 +120,32 @@ export default function OtpVerificationScreen({ navigation, route = {} }) {
   };
 
   const handleOtpChange = (value, index) => {
-    const cleanValue = value.replace(/[^0-9]/g, '');
+    let cleanValue = value.replace(/[^0-9]/g, '');
 
     clearMessagesIfNeeded();
 
+    // Typing over a box that already holds a digit gives two characters:
+    // keep only the new one.
+    if (cleanValue.length === 2 && otp[index] && cleanValue.includes(otp[index])) {
+      cleanValue = cleanValue[0] === otp[index] ? cleanValue[1] : cleanValue[0];
+    }
+
     if (cleanValue.length > 1) {
-      const pastedCode = cleanValue.slice(0, OTP_LENGTH).split('');
-      const nextOtp = createEmptyOtp();
+      // Pasted or auto-filled code: a full code fills every box, a shorter
+      // one fills from this box onwards.
+      const start = cleanValue.length >= OTP_LENGTH ? 0 : index;
+      const pastedCode = cleanValue.slice(0, OTP_LENGTH - start).split('');
+      const nextOtp = start === 0 ? createEmptyOtp() : [...otp];
 
       pastedCode.forEach((digit, digitIndex) => {
-        nextOtp[digitIndex] = digit;
+        nextOtp[start + digitIndex] = digit;
       });
 
       setOtp(nextOtp);
 
-      const nextIndex = Math.min(pastedCode.length, OTP_LENGTH - 1);
-      focusInput(nextIndex);
+      const filledTo = start + pastedCode.length;
+      if (filledTo >= OTP_LENGTH) inputRefs.current[OTP_LENGTH - 1]?.blur();
+      else focusInput(filledTo);
       return;
     }
 
