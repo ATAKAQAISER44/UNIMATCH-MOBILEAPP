@@ -37,6 +37,13 @@ def _overall_score_series(view: dict) -> pd.Series:
     return minimum + normalized * (maximum - minimum)
 
 
+def find_university_row(view: dict, key: str):
+    """The row of one university (by normalized name key) in a loaded dataset view, or None."""
+    df = view["df"]
+    matches = df[df[view["name_col"]].astype(str).map(normalize_university_name) == key]
+    return None if matches.empty else matches.iloc[0]
+
+
 def search_universities(query: str, limit: int = 15) -> list[dict]:
     query_key = normalize_university_name(query)
     if not query_key:
@@ -85,17 +92,13 @@ def build_university_journey(key: str) -> dict:
 
         for year in available_years(dataset):
             view, selected_year, _years = load_researcher_dataset(dataset, year)
-            df = view["df"]
             name_col = view["name_col"]
             country_col = view["country_col"]
 
-            normalized_names = df[name_col].astype(str).map(normalize_university_name)
-            matches = df[normalized_names == key]
-
-            if matches.empty:
+            row = find_university_row(view, key)
+            if row is None:
                 continue
 
-            row = matches.iloc[0]
             overall_score = _overall_score_series(view).get(row.name)
             rank_value = row.get("_rank_numeric")
 

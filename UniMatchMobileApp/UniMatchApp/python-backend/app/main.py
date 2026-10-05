@@ -29,9 +29,15 @@ from app.services.scoring_service import (
 )
 from app.services.my_ranking_service import build_my_ranking_results
 from app.researcher.router import router as researcher_router
+from app.administrator.router import router as administrator_router
+from app.policymaker.router import router as policymaker_router
+from app.student.router import router as student_router
 
 app = FastAPI(title="UniMatch Python Backend")
 app.include_router(researcher_router)
+app.include_router(administrator_router)
+app.include_router(policymaker_router)
+app.include_router(student_router)
 
 
 def safely_merge_attributes(df, name_col):
