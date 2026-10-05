@@ -91,7 +91,6 @@ const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z
 // hyphens and dots. No digits or other symbols.
 const NAME_REGEX = /^[A-Za-z\u00C0-\u024F\u0600-\u06FF\u0900-\u097F .'-]+$/;
 const NAME_LETTER_REGEX = /[A-Za-z\u00C0-\u024F\u0600-\u06FF\u0900-\u097F]/g;
-const MIN_AGE = 13;
 
 // Error text for a full name, or '' when it is valid.
 export function validateFullName(value) {
@@ -162,14 +161,6 @@ function isValidRealDate(value) {
     dobDate.getMonth() === month - 1 &&
     dobDate.getDate() === day
   );
-}
-
-function ageOn(value) {
-  const [year, month, day] = value.split('-').map(Number);
-  const today = new Date();
-  let age = today.getFullYear() - year;
-  if (today.getMonth() + 1 < month || (today.getMonth() + 1 === month && today.getDate() < day)) age -= 1;
-  return age;
 }
 
 function isFutureDate(value) {
@@ -439,16 +430,6 @@ export default function SignUpScreen({ navigation }) {
 
     if (isFutureDate(normalizedDob)) {
       showMessage('Date of birth cannot be in the future.');
-      return false;
-    }
-
-    if (Number(normalizedDob.slice(0, 4)) < 1900) {
-      showMessage('Please enter a valid date of birth.');
-      return false;
-    }
-
-    if (ageOn(normalizedDob) < MIN_AGE) {
-      showMessage(`You must be at least ${MIN_AGE} years old to create an account.`);
       return false;
     }
 
