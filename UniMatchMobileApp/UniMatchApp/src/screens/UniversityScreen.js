@@ -1,78 +1,107 @@
 // src/screens/UniversityScreen.js
 //
-// University introduction page. Opens when a university name is tapped
-// anywhere in the app. Shows where the university stands in QS, THE and
-// ARWU (latest edition and history) and its key facts (fees, scholarships,
-// admission, ...). Data comes from the existing researcher endpoints:
-// /researcher/university-journey and /researcher/attributes.
+// University introduction page (web: pages/UniversityIntroPage.jsx). Opens
+// when a university name is tapped anywhere in the app, for every role.
+//   Hero        - name, location, type, rank badge per ranking; students can
+//                 Save and Compare it.
+//   For you     - students only: admission chance and total cost (POST /student/plan).
+//   Trend       - rank over the years in QS, THE and ARWU.
+//   Details     - Overview / Rankings / Cost / Academics / Outcomes / Links.
+// Data: GET /rankings/{ds}/export?search= (all attributes per ranking),
+// GET /researcher/university-journey (history) and GET /researcher/attributes
+// (fallback when the university is in no ranking).
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ScrollView,
-  StatusBar,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { Text } from '../components/AppText';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Linking, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { bottomPadding } from '../utils/safeArea';
-import { topBarPadding } from '../utils/safeArea';
 
-import { Card, ErrorBox, LoadingBlock, SectionHeading } from '../components/researcher/ResearcherUI';
+import { Text } from '../components/AppText';
+import AppLayout from '../components/app/AppLayout';
+import { Pill } from '../components/app/RoleUI';
+import RankJourneyChart from '../components/RankJourneyChart';
+import CompareBar from '../components/CompareBar';
+import CompareModal from '../components/CompareModal';
+import { PlanDetails } from '../components/student/PlanWidgets';
+import { Card, ErrorBox, InlineLoader, LoadingBlock, SectionHeading } from '../components/researcher/ResearcherUI';
 import { researcherStyles as styles } from '../styles/researcherStyles';
 import { authTheme } from '../styles/authTheme';
 import { fetchUniversityAttributes, fetchUniversityJourney } from '../services/researcherApi';
+import { findUniversityInRankings, RANKING_KEYS } from '../services/universitySearch';
+import { useStudentPlan } from '../services/backendData';
+import { useSavedUniversities } from '../services/savedUniversities';
+import { useCompareList } from '../services/compareList';
+import { useUserRole } from '../services/userRole';
 
-const DATASETS = [
-  { key: 'qs', label: 'QS', color: '#008C8C' },
-  { key: 'the', label: 'THE', color: '#55B947' },
-  { key: 'arwu', label: 'ARWU', color: '#F59E0B' },
-];
+const DATASETS = {
+  qs: { label: 'QS', color: '#008C8C' },
+  the: { label: 'THE', color: '#55B947' },
+  arwu: { label: 'ARWU', color: '#F59E0B' },
+};
 
-const FACTS = [
-  { key: 'tuition_fee_international', label: 'Tuition (international)' },
-  { key: 'tuition_fee_local', label: 'Tuition (local)' },
-  { key: 'living_cost', label: 'Living cost' },
-  { key: 'scholarship', label: 'Scholarship' },
-  { key: 'cgpa_requirement', label: 'Minimum CGPA' },
-  { key: 'acceptance_rate', label: 'Acceptance rate' },
-  { key: 'employability_rate', label: 'Employability' },
-  { key: 'internship', label: 'Internships' },
-  { key: 'part_time_job', label: 'Part-time work' },
-  { key: 'language', label: 'Teaching language' },
-  { key: 'public_private', label: 'Type' },
-  { key: 'degree_level', label: 'Degree levels' },
-  { key: 'gender_equality', label: 'Gender ratio' },
+// [label, export column (raw), attributes-endpoint key]
+const SECTIONS = [
+  {
+    key: 'overview',
+    label: 'Overview',
+    about: 'Basic information from the datasets.',
+    fields: [
+      ['Country', 'Country', null],
+      ['Region', 'Region', 'region'],
+      ['Type', 'Public__Private', 'public_private'],
+      ['Teaching language', 'Language', 'language'],
+      ['Degree levels', 'Degree_Level_offered', 'degree_level'],
+    ],
+  },
+  { key: 'rankings', label: 'Rankings', about: 'Latest edition of each ranking. Tap one for past years.' },
+  {
+    key: 'cost',
+    label: 'Cost',
+    about: 'Yearly tuition, living cost and scholarships.',
+    fields: [
+      ['Tuition (local)', 'Tuition_Fee_local', 'tuition_fee_local'],
+      ['Tuition (international)', 'Tuition_Fee_international', 'tuition_fee_international'],
+      ['Living cost', 'Living_Cost', 'living_cost'],
+      ['Scholarship', 'Scholarship_YesNo', 'scholarship'],
+    ],
+  },
+  {
+    key: 'academics',
+    label: 'Academics',
+    about: 'Programmes, tests and admission.',
+    fields: [
+      ['Minimum CGPA', 'Minimum_CGPA_Requirement', 'cgpa_requirement'],
+      ['Acceptance rate', 'Acceptance_Rate', 'acceptance_rate'],
+      ['Tests', 'Standardized_Test', null],
+      ['Own admission test', 'University_Acceptance_Test_YesNo', null],
+      ['Programmes', 'Programmes_Offered', null, true],
+    ],
+  },
+  {
+    key: 'outcomes',
+    label: 'Outcomes',
+    about: 'Work options, employability and equality.',
+    fields: [
+      ['Internships', 'Internship_Available', 'internship'],
+      ['Part-time work', 'PartTime_Job_Allowed', 'part_time_job'],
+      ['Employability', 'Graduate_Employability_Rate', 'employability_rate'],
+      ['Gender ratio (F : M)', 'Gender_Equality', 'gender_equality'],
+    ],
+  },
+  {
+    key: 'links',
+    label: 'Links',
+    about: 'Official pages for admission and funding.',
+    links: [
+      ['Official website', 'University_Official_Website_link'],
+      ['Scholarships page', 'University_ScholarShip_webpage_link'],
+    ],
+  },
 ];
 
 function hasValue(value) {
   if (value === null || value === undefined) return false;
   const text = String(value).trim();
-  return text !== '' && text.toLowerCase() !== 'nan' && text.toLowerCase() !== 'n/a';
-}
-
-function UniversityTopBar({ onBack }) {
-  const insets = useSafeAreaInsets();
-
-  return (
-    <LinearGradient
-      colors={authTheme.gradients.button}
-      start={{ x: 0, y: 0.5 }}
-      end={{ x: 1, y: 0.5 }}
-      style={[styles.topBar, topBarPadding(insets)]}
-    >
-      <StatusBar barStyle="light-content" />
-      <TouchableOpacity style={styles.topButton} activeOpacity={0.82} onPress={onBack} accessibilityLabel="Go back">
-        <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
-      </TouchableOpacity>
-      <View style={styles.brandRow}>
-        <Text style={styles.navBrand}>University</Text>
-      </View>
-      <View style={{ width: 34, height: 34 }} />
-    </LinearGradient>
-  );
+  return text !== '' && !['nan', 'n/a', 'none', 'null'].includes(text.toLowerCase());
 }
 
 // Latest ranked edition and best rank for one ranking system.
@@ -93,24 +122,25 @@ export function summariseDataset(points = []) {
   };
 }
 
-function RankCard({ dataset, summary, highlight }) {
+function RankCard({ dataset, summary, officialRank, highlight }) {
   const [open, setOpen] = useState(false);
   const { latest, best, change, history } = summary;
+  const style = DATASETS[dataset];
 
   return (
     <View style={[styles.rowCard, highlight && styles.rowCardActive]}>
       <TouchableOpacity activeOpacity={0.85} onPress={() => setOpen((value) => !value)} disabled={history.length < 2}>
         <View style={styles.rowTop}>
-          <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: dataset.color, marginRight: 8 }} />
+          <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: style.color, marginRight: 8 }} />
           <Text style={[styles.rowName, styles.flex1]}>
-            {dataset.label} {latest.year}
+            {style.label} {latest.year}
           </Text>
-          <Text style={[styles.rowScore, { fontSize: 16 }]}>#{latest.rank}</Text>
+          <Text style={[styles.rowScore, { fontSize: 16 }]}>#{officialRank || latest.rank}</Text>
         </View>
 
         <View style={[styles.rowBetween, { marginTop: 6 }]}>
-          <Text style={styles.rowSub}>
-            Best: #{best.rank} ({best.year})
+          <Text style={[styles.rowSub, styles.flex1]}>
+            Best #{best.rank} ({best.year})
             {change ? `  ·  ${change > 0 ? '▲' : '▼'} ${Math.abs(change)} since last edition` : ''}
           </Text>
           {history.length > 1 && <Text style={styles.expandText}>{open ? 'Hide' : 'History'}</Text>}
@@ -128,15 +158,83 @@ function RankCard({ dataset, summary, highlight }) {
   );
 }
 
+function HeroButton({ label, icon, active, onPress }) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      accessibilityRole="button"
+      style={[
+        styles.outlineButton,
+        styles.outlineButtonSmall,
+        { flexDirection: 'row', flexGrow: 1, flexBasis: 120 },
+        active && { backgroundColor: authTheme.colors.brandTeal, borderColor: authTheme.colors.brandTeal },
+      ]}
+    >
+      <Ionicons name={icon} size={15} color={active ? '#FFFFFF' : authTheme.colors.brandTeal} />
+      <Text style={[styles.outlineButtonText, { fontSize: 12, marginLeft: 6 }, active && { color: '#FFFFFF' }]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function SectionTabs({ value, onChange }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 2 }}>
+      {SECTIONS.map((section) => {
+        const active = section.key === value;
+        return (
+          <TouchableOpacity
+            key={section.key}
+            onPress={() => onChange(section.key)}
+            activeOpacity={0.85}
+            style={[
+              styles.pill,
+              { minHeight: 36, paddingHorizontal: 14, justifyContent: 'center', borderColor: authTheme.colors.brandBorder, backgroundColor: '#FFFFFF' },
+              active && { backgroundColor: authTheme.colors.brandTeal, borderColor: authTheme.colors.brandTeal },
+            ]}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+          >
+            <Text style={[styles.pillText, { fontSize: 12, color: active ? '#FFFFFF' : authTheme.colors.brandTeal }]}>{section.label}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+// Short generated introduction, e.g. "X is a public university in Y. It
+// offers Bachelor, Master, PhD degrees, taught in English. Graduate
+// employability is 91%."
+export function introText(name, info) {
+  const type = hasValue(info.type) ? `${String(info.type).toLowerCase()} ` : '';
+  const sentences = [`${name} is a ${type}university${hasValue(info.country) ? ` in ${info.country}` : ''}.`];
+  if (hasValue(info.degrees)) {
+    sentences.push(`It offers ${info.degrees} degrees${hasValue(info.language) ? `, taught in ${info.language}` : ''}.`);
+  } else if (hasValue(info.language)) {
+    sentences.push(`Teaching is in ${info.language}.`);
+  }
+  if (hasValue(info.employability)) sentences.push(`Graduate employability is ${info.employability}.`);
+  return sentences.join(' ');
+}
+
 export default function UniversityScreen({ navigation, route }) {
-  const insets = useSafeAreaInsets();
   const params = route?.params || {};
   const name = params.name || 'University';
+  const { key: role } = useUserRole();
+  const isStudent = role === 'student';
+
+  const [rows, setRows] = useState({});
   const [journey, setJourney] = useState(null);
   const [attributes, setAttributes] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
+  const [section, setSection] = useState('overview');
+  const [compareOpen, setCompareOpen] = useState(false);
+
+  const saved = useSavedUniversities();
+  const compare = useCompareList();
 
   useEffect(() => {
     let active = true;
@@ -145,26 +243,28 @@ export default function UniversityScreen({ navigation, route }) {
       setLoading(true);
       setError('');
 
-      // Both lookups run together; a university can have one without the other.
-      const [journeyResult, attributeResult] = await Promise.allSettled([
+      // All lookups run together; a university can be in some and not others.
+      const [rowsResult, journeyResult, attributeResult] = await Promise.allSettled([
+        findUniversityInRankings(name, params.country),
         fetchUniversityJourney(name),
         fetchUniversityAttributes(name, params.country),
       ]);
-
       if (!active) return;
 
+      const nextRows = rowsResult.status === 'fulfilled' ? rowsResult.value : {};
       const nextJourney = journeyResult.status === 'fulfilled' ? journeyResult.value : null;
       const nextAttributes = attributeResult.status === 'fulfilled' ? attributeResult.value : null;
 
+      setRows(nextRows);
       setJourney(nextJourney);
       setAttributes(nextAttributes);
 
-      // A 404 just means "not in the rankings"; anything else is a real error.
-      const journeyError = journeyResult.status === 'rejected' ? journeyResult.reason?.message || '' : '';
-      if (!nextJourney && !nextAttributes && journeyError && !/not found/i.test(journeyError)) {
-        setError(journeyError);
+      // "Not found" just means the university is in no ranking.
+      const failure = [rowsResult, journeyResult].find((result) => result.status === 'rejected');
+      const message = failure?.reason?.message || '';
+      if (!Object.keys(nextRows).length && !nextJourney && !nextAttributes && message && !/not found/i.test(message)) {
+        setError(message);
       }
-
       setLoading(false);
     }
 
@@ -174,96 +274,240 @@ export default function UniversityScreen({ navigation, route }) {
     };
   }, [name, params.country, reloadKey]);
 
+  // The row of the ranking the user came from (or the first one found).
+  const primaryKey = rows[params.dataset] ? params.dataset : RANKING_KEYS.find((key) => rows[key]);
+  const primary = primaryKey ? rows[primaryKey] : null;
+  const raw = primary?.raw || {};
+  const country = primary?.country || journey?.country || params.country || '';
+
+  // Value of one field: export row first, then the attributes endpoint.
+  const field = (column, attributeKey) => {
+    if (column === 'Country') return country;
+    if (hasValue(raw[column])) return raw[column];
+    for (const key of RANKING_KEYS) {
+      if (hasValue(rows[key]?.raw?.[column])) return rows[key].raw[column];
+    }
+    return attributeKey && hasValue(attributes?.[attributeKey]) ? attributes[attributeKey] : null;
+  };
+
+  const info = {
+    region: field('Region', 'region'),
+    type: field('Public__Private', 'public_private'),
+    language: field('Language', 'language'),
+    degrees: field('Degree_Level_offered', 'degree_level'),
+    employability: field('Graduate_Employability_Rate', 'employability_rate'),
+    country,
+  };
+
   const rankSummaries = useMemo(
     () =>
-      DATASETS.map((dataset) => ({
-        dataset,
-        summary: summariseDataset(journey?.datasets?.[dataset.key]),
-      })).filter((item) => item.summary),
-    [journey]
+      RANKING_KEYS.map((key) => ({ key, summary: summariseDataset(journey?.datasets?.[key]) })).filter(
+        (item) => item.summary || rows[item.key]
+      ),
+    [journey, rows]
   );
 
-  const facts = useMemo(
-    () => FACTS.filter((fact) => hasValue(attributes?.[fact.key])).map((fact) => ({ ...fact, value: String(attributes[fact.key]) })),
-    [attributes]
+  // The university as a saved / compared item.
+  const university = useMemo(
+    () => ({
+      ...(primary || {}),
+      name: primary?.name || journey?.name || name,
+      country,
+      dataset: primaryKey || params.dataset,
+      official_rank: primary?.official_rank || params.rank,
+      raw: { ...(primary?.raw || {}), Institution_Name: primary?.name || name, Country: country },
+    }),
+    [primary, journey, name, country, primaryKey, params.dataset, params.rank]
   );
 
-  const country = journey?.country || params.country;
-  const region = hasValue(attributes?.region) ? attributes.region : '';
-  const location = [country, region].filter(Boolean).join(' · ');
+  const planList = useMemo(() => (isStudent ? [{ name: university.name, country }] : []), [isStudent, university.name, country]);
+  const plan = useStudentPlan(planList);
+  const myPlan = plan.data?.universities?.[0];
 
-  const goBack = useCallback(() => {
-    if (navigation.canGoBack()) navigation.goBack();
-    else navigation.navigate('Dashboard');
-  }, [navigation]);
+  const isSaved = saved.isSaved(university);
+  const isCompared = compare.isCompared(university);
+  const displayName = primary?.name || journey?.name || name;
+  const sectionInfo = SECTIONS.find((item) => item.key === section);
 
-  const contextLine = [
-    params.dataset ? String(params.dataset).toUpperCase() : '',
-    params.rank ? `#${String(params.rank).replace(/^#/, '')}` : '',
-    params.score ? `score ${params.score}` : '',
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const renderFields = () => {
+    if (section === 'rankings') {
+      return rankSummaries.length === 0 ? (
+        <Text style={styles.mutedText}>Not listed in QS, THE or ARWU.</Text>
+      ) : (
+        rankSummaries.map(({ key, summary }) =>
+          summary ? (
+            <RankCard key={key} dataset={key} summary={summary} officialRank={rows[key]?.official_rank} highlight={key === primaryKey} />
+          ) : (
+            <View key={key} style={styles.rowCard}>
+              <View style={styles.rowTop}>
+                <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: DATASETS[key].color, marginRight: 8 }} />
+                <Text style={[styles.rowName, styles.flex1]}>{DATASETS[key].label}</Text>
+                <Text style={[styles.rowScore, { fontSize: 16 }]}>#{rows[key].official_rank}</Text>
+              </View>
+            </View>
+          )
+        )
+      );
+    }
+
+    if (sectionInfo.links) {
+      const links = sectionInfo.links.map(([label, column]) => [label, field(column)]).filter(([, url]) => hasValue(url));
+      return links.length === 0 ? (
+        <Text style={styles.mutedText}>No links on file yet.</Text>
+      ) : (
+        links.map(([label, url]) => (
+          <TouchableOpacity
+            key={label}
+            onPress={() => Linking.openURL(String(url).split(' ; ')[0]).catch(() => {})}
+            style={[styles.rowCard, styles.rowTop, { minHeight: 44 }]}
+            accessibilityRole="link"
+          >
+            <Ionicons name="open-outline" size={16} color={authTheme.colors.brandTeal} style={{ marginRight: 8 }} />
+            <View style={styles.flex1}>
+              <Text style={styles.rowName}>{label}</Text>
+              <Text style={styles.rowSub} numberOfLines={1}>
+                {String(url)}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))
+      );
+    }
+
+    const values = sectionInfo.fields.map(([label, column, attributeKey, wide]) => ({ label, value: field(column, attributeKey), wide }));
+    if (!values.some((item) => hasValue(item.value))) {
+      return <Text style={styles.mutedText}>No details on file yet.</Text>;
+    }
+    return (
+      <View style={[styles.kvGrid, { marginTop: 0 }]}>
+        {values.map((item) => (
+          <View key={item.label} style={[styles.kvItem, item.wide && { flexBasis: '100%' }]}>
+            <Text style={styles.kvLabel}>{item.label}</Text>
+            <Text style={styles.kvValue} numberOfLines={item.wide ? 8 : 4}>
+              {hasValue(item.value) ? String(item.value).replace(/,(?=\S)/g, ', ') : 'N/A'}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
 
   return (
-    <View style={styles.screen}>
-      <UniversityTopBar onBack={goBack} />
+    <AppLayout
+      navigation={navigation}
+      bottomSpace={isStudent && compare.items.length ? 120 : 32}
+      footer={
+        isStudent ? (
+          <>
+            <CompareBar compareList={compare.items} onOpenCompare={() => setCompareOpen(true)} onClearCompare={compare.clear} />
+            <CompareModal
+              visible={compareOpen}
+              compareList={compare.items}
+              allUniversities={[university, ...saved.items]}
+              onClose={() => setCompareOpen(false)}
+              onAddUniversity={compare.add}
+              onRemove={compare.remove}
+              onGoToRankings={() => setCompareOpen(false)}
+            />
+          </>
+        ) : null
+      }
+    >
+      <View style={styles.heroCard}>
+        <View style={styles.badge}>
+          <View style={styles.badgeDot} />
+          <Text style={styles.badgeText}>University profile</Text>
+        </View>
+        <Text style={styles.heroTitle}>{displayName}</Text>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, bottomPadding(insets, 32)]} showsVerticalScrollIndicator={false}>
-        <View style={styles.heroCard}>
-          <Text style={styles.heroTitle}>{journey?.name || name}</Text>
-          {!!location && <Text style={styles.heroSubtitle}>📍 {location}</Text>}
-          {!!contextLine && (
-            <View style={[styles.pill, { marginTop: 8, borderColor: authTheme.colors.brandBorder, backgroundColor: '#FFFFFF' }]}>
-              <Text style={[styles.pillText, { color: authTheme.colors.brandTeal }]}>{contextLine}</Text>
-            </View>
-          )}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+          {hasValue(country) && <Pill label={`📍 ${country}`} />}
+          {hasValue(info.region) && <Pill label={info.region} />}
+          {hasValue(info.type) && <Pill label={info.type} />}
         </View>
 
         {loading ? (
-          <Card>
-            <LoadingBlock />
-          </Card>
-        ) : error ? (
-          <ErrorBox message={error} onRetry={() => setReloadKey((value) => value + 1)} />
+          <InlineLoader style={{ paddingHorizontal: 0, alignItems: 'flex-start' }} />
         ) : (
-          <>
-            <Card>
-              <SectionHeading title="World rankings" />
-              {rankSummaries.length === 0 ? (
-                <Text style={styles.mutedText}>Not listed in QS, THE or ARWU.</Text>
-              ) : (
-                rankSummaries.map(({ dataset, summary }) => (
-                  <RankCard
-                    key={dataset.key}
-                    dataset={dataset}
-                    summary={summary}
-                    highlight={String(params.dataset || '').toLowerCase() === dataset.key}
-                  />
-                ))
-              )}
-            </Card>
-
-            <Card>
-              <SectionHeading title="Key facts" />
-              {facts.length === 0 ? (
-                <Text style={styles.mutedText}>No fee or admission details on file yet.</Text>
-              ) : (
-                <View style={[styles.kvGrid, { marginTop: 0 }]}>
-                  {facts.map((fact) => (
-                    <View key={fact.key} style={styles.kvItem}>
-                      <Text style={styles.kvLabel}>{fact.label}</Text>
-                      <Text style={styles.kvValue} numberOfLines={4}>
-                        {fact.value}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </Card>
-          </>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+            {RANKING_KEYS.map((key) => (
+              <View
+                key={key}
+                style={[
+                  styles.statCard,
+                  { minHeight: 0, flexBasis: 80, paddingVertical: 8, alignItems: 'center' },
+                  key === primaryKey && { borderColor: authTheme.colors.brandTeal },
+                ]}
+              >
+                <Text style={[styles.kvLabel, { color: DATASETS[key].color, fontWeight: '900' }]}>{DATASETS[key].label}</Text>
+                <Text style={[styles.statValue, { fontSize: 16 }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {rows[key] ? `#${rows[key].official_rank}` : '–'}
+                </Text>
+              </View>
+            ))}
+          </View>
         )}
-      </ScrollView>
-    </View>
+
+        {isStudent && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+            <HeroButton
+              label={isCompared ? 'Compared' : 'Compare'}
+              icon={isCompared ? 'checkmark' : 'git-compare-outline'}
+              active={isCompared}
+              onPress={() => compare.toggle(university)}
+            />
+            <HeroButton
+              label={isSaved ? 'Saved' : 'Save'}
+              icon={isSaved ? 'star' : 'star-outline'}
+              active={isSaved}
+              onPress={() => saved.toggle(university, university.dataset)}
+            />
+          </View>
+        )}
+      </View>
+
+      {loading ? (
+        <Card>
+          <LoadingBlock />
+        </Card>
+      ) : error ? (
+        <ErrorBox message={error} onRetry={() => setReloadKey((value) => value + 1)} />
+      ) : (
+        <>
+          {(primary || attributes) && (
+            <Card>
+              <SectionHeading title={`About ${displayName}`} />
+              <Text style={styles.bodyText}>{introText(displayName, info)}</Text>
+            </Card>
+          )}
+
+          {isStudent && (
+            <Card>
+              <SectionHeading eyebrow="For you" title="Your chances & total cost" subtitle="Based on your saved profile." />
+              {plan.loading ? (
+                <LoadingBlock />
+              ) : plan.error ? (
+                <Text style={styles.mutedText}>{plan.error}</Text>
+              ) : (
+                <PlanDetails plan={myPlan} pkrPerUsd={plan.data?.pkr_per_usd} />
+              )}
+            </Card>
+          )}
+
+          {journey && (
+            <Card>
+              <SectionHeading eyebrow="Trend" title="Rank over the years" subtitle="Higher on the chart is a better rank." />
+              <RankJourneyChart datasets={journey.datasets} />
+            </Card>
+          )}
+
+          <Card>
+            <SectionTabs value={section} onChange={setSection} />
+            <Text style={[styles.mutedText, { marginTop: 10, marginBottom: 8 }]}>{sectionInfo.about}</Text>
+            {renderFields()}
+          </Card>
+        </>
+      )}
+    </AppLayout>
   );
 }

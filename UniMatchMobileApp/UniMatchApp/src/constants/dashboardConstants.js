@@ -39,4 +39,4 @@ export const DATASETS = [
 
 export const DEFAULT_RECOMMENDED_DATASET = 'THE';
 export const DEFAULT_PRIORITY = 'Balanced Preference';
-export const DEFAULT_DEGREE = 'MS';
+export const DEFAULT_DEGREE = 'Master';

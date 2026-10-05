@@ -1,6 +1,6 @@
 // src/components/smart-match/PaginatedResults.js
 
-import React, { memo } from 'react';
+import React, { memo, useCallback } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -10,7 +10,9 @@ import {
 import { Text } from '../AppText';
 
 import { authTheme } from '../../styles/authTheme';
-import UniversityLink from '../UniversityLink';
+import UniversityLink, { useOpenUniversity } from '../UniversityLink';
+import { useSavedUniversities } from '../../services/savedUniversities';
+import { useCompareList } from '../../services/compareList';
 
 const safeText = (value, fallback = '') => {
   if (value === null || value === undefined || value === '') return fallback;
@@ -160,9 +162,31 @@ function MetaChip({ text }) {
 
 // PERF: memo() so cards are not rebuilt when the parent re-renders for
 // unrelated state (form inputs, notices) while results are on screen.
+// Card actions (web PersonalizedCard): View details, Compare, Save.
+function CardAction({ label, icon, active, onPress }) {
+  return (
+    <TouchableOpacity
+      style={[styles.actionButton, active && styles.actionButtonActive]}
+      activeOpacity={0.85}
+      onPress={onPress}
+      accessibilityRole="button"
+    >
+      <Text style={[styles.actionText, active && styles.actionTextActive]} numberOfLines={1}>
+        {icon} {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 const UniversityCard = memo(function UniversityCard({
   university = {},
   index,
+  dataset,
+  saved,
+  compared,
+  onOpen,
+  onToggleSave,
+  onToggleCompare,
 }) {
   const raw = getRaw(university);
 
@@ -214,6 +238,7 @@ const UniversityCard = memo(function UniversityCard({
           <UniversityLink
             name={safeText(name, 'Unknown University')}
             country={country}
+            dataset={dataset}
             rank={officialRank !== 'N/A' ? officialRank : undefined}
             style={styles.uniName}
             numberOfLines={2}
@@ -274,6 +299,12 @@ const UniversityCard = memo(function UniversityCard({
           ))}
         </View>
       ) : null}
+
+      <View style={styles.actionRow}>
+        <CardAction label="Details" icon="›" onPress={() => onOpen(university)} />
+        <CardAction label={compared ? 'Compared' : 'Compare'} icon={compared ? '✓' : '+'} active={compared} onPress={() => onToggleCompare(university)} />
+        <CardAction label={saved ? 'Saved' : 'Save'} icon={saved ? '★' : '☆'} active={saved} onPress={() => onToggleSave(university)} />
+      </View>
     </View>
   );
 });
@@ -286,8 +317,23 @@ export default function PaginatedResults({
   pageSize,
   title = 'Search Results',
   description = '',
+  dataset,
 }) {
   const safeUniversities = Array.isArray(universities) ? universities : [];
+  const { isSaved, toggle: toggleSaved } = useSavedUniversities();
+  const { isCompared, toggle: toggleCompared } = useCompareList();
+  const openUniversity = useOpenUniversity();
+  const openCard = useCallback(
+    (university) =>
+      openUniversity({
+        name: getUniversityName(university),
+        country: getCountry(university),
+        dataset,
+        rank: getOfficialRank(university),
+      }),
+    [dataset, openUniversity]
+  );
+  const toggleSave = useCallback((university) => toggleSaved({ ...university, dataset }, dataset), [dataset, toggleSaved]);
   const safePageSize = Number(pageSize) || 5;
 
   const totalPages = Math.max(
@@ -338,6 +384,12 @@ export default function PaginatedResults({
             )}
             university={university || {}}
             index={start + index}
+            dataset={dataset}
+            saved={isSaved(university)}
+            compared={isCompared(university)}
+            onOpen={openCard}
+            onToggleSave={toggleSave}
+            onToggleCompare={toggleCompared}
           />
         ))}
       </View>
@@ -662,6 +714,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  actionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 9,
+  },
+
+  actionButton: {
+    flexGrow: 1,
+    flexBasis: 80,
+    minHeight: 36,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: authTheme.colors.brandBorder,
+    backgroundColor: '#F8FFFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+
+  actionButtonActive: {
+    borderColor: authTheme.colors.brandTeal,
+    backgroundColor: authTheme.colors.brandTeal,
+  },
+
+  actionText: {
+    fontSize: 11.5,
+    fontWeight: '900',
+    color: authTheme.colors.brandTeal,
+  },
+
+  actionTextActive: {
+    color: '#FFFFFF',
   },
 
   pageIndicatorText: {

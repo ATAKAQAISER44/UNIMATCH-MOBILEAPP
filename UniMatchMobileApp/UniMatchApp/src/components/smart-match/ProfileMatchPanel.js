@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { supabase } from '../../services/supabase';
 import { getSignedInUser } from '../../services/session';
+import { normalizeIntendedLevel } from '../../utils/profileSetupUtils';
 import PaginatedResults from './PaginatedResults';
 import { smartMatchUIStyles as styles } from '../../styles/smartMatchUIStyles';
 import { authTheme } from '../../styles/authTheme';
@@ -32,7 +33,7 @@ const REGION_OPTIONS = [
   'Africa',
 ];
 
-const DEGREE_OPTIONS = ['BS', 'MS', 'MS leading to PhD', 'PhD'];
+const DEGREE_OPTIONS = ['Bachelor', 'Master', 'MS leading to PhD', 'PhD'];
 
 const SCHOLARSHIP_OPTIONS = [
   'Scholarship-supported',
@@ -356,6 +357,7 @@ const SortOptionsModal = memo(function SortOptionsModal({
 
 export default function ProfileMatchPanel({
   headerComponent = null,
+  datasetKey,
   universities = [],
   loading = false,
   fetchSmartMatch,
@@ -471,8 +473,7 @@ export default function ProfileMatchPanel({
 
       setProfile({
         academic: {
-          intended_education_level:
-            academic.intended_education_level || '',
+          intended_education_level: normalizeIntendedLevel(academic.intended_education_level),
           field_of_study: academic.field_of_study || '',
           score_type: academic.score_type || 'CGPA',
           score_value: normalizeValue(academic.score_value),
@@ -737,7 +738,7 @@ export default function ProfileMatchPanel({
     <>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scroll, bottomPadding(insets, 24)]}
+        contentContainerStyle={[styles.scroll, bottomPadding(insets, 120)]}
       >
         {headerComponent ? (
           <View style={{ marginBottom: 12 }}>{headerComponent}</View>
@@ -928,6 +929,7 @@ export default function ProfileMatchPanel({
             <PaginatedResults
               title=""
               description=""
+              dataset={datasetKey}
               universities={universities}
               loading={loading}
               activeTab="smart"

@@ -8,18 +8,15 @@
 // version for this session. Share it as PDF or CSV.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ScrollView,
-  View,
-} from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../../components/AppText';
 import { useFocusEffect } from '@react-navigation/native';
 
 import ResearcherLayout from '../../components/researcher/ResearcherLayout';
+import ReportDocument from '../../components/ReportDocument';
 import {
   Card,
   ErrorBox,
-  FindingCards,
   GradientButton,
   LoadingBlock,
   OutlineButton,
@@ -28,106 +25,16 @@ import {
   useLatestRequest,
 } from '../../components/researcher/ResearcherUI';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
-import { authTheme } from '../../styles/authTheme';
 import { RESEARCHER_ROUTES } from '../../constants/researcherConstants';
 import { loadSavedExperiments } from '../../utils/researcherExperiments';
 import {
-  DATASET_TITLES,
   buildReport,
-  formatReportDate,
   runReportAnalyses,
   shareReportCsv,
   shareReportPdf,
 } from '../../utils/researchReport';
 
 const DATASET_SHORT = { qs: 'QS', the: 'THE', arwu: 'ARWU' };
-
-// Narrow tables fit the screen; wider ones scroll sideways.
-function ReportTable({ table }) {
-  const columnWidth = table.head.length > 4 ? 112 : null;
-
-  const content = (
-    <View style={[styles.table, columnWidth && { width: columnWidth * table.head.length }]}>
-      <View style={styles.tableRow}>
-        {table.head.map((cell) => (
-          <View key={cell} style={[styles.tableHeadCell, columnWidth ? { width: columnWidth } : { flex: 1 }]}>
-            <Text style={styles.tableHeadText}>{cell}</Text>
-          </View>
-        ))}
-      </View>
-      {table.body.map((row, rowIndex) => (
-        <View key={rowIndex} style={styles.tableRow}>
-          {row.map((cell, cellIndex) => (
-            <View
-              key={cellIndex}
-              style={[
-                styles.tableCell,
-                columnWidth ? { width: columnWidth } : { flex: 1 },
-                rowIndex % 2 === 1 && { backgroundColor: '#F3FBF8' },
-              ]}
-            >
-              <Text style={[styles.tableCellText, cellIndex === 0 && { fontWeight: '800' }]}>{String(cell)}</Text>
-            </View>
-          ))}
-        </View>
-      ))}
-    </View>
-  );
-
-  return (
-    <View style={{ marginTop: 12 }}>
-      <Text style={[styles.findingTitle, { marginBottom: 6 }]}>{table.caption}</Text>
-      {columnWidth ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {content}
-        </ScrollView>
-      ) : (
-        content
-      )}
-    </View>
-  );
-}
-
-function ReportDocument({ report }) {
-  return (
-    <Card>
-      <View style={{ borderBottomWidth: 1, borderBottomColor: authTheme.colors.brandBorder, paddingBottom: 12 }}>
-        <View style={{ width: 56, height: 5, borderRadius: 999, backgroundColor: authTheme.colors.brandTeal, marginBottom: 10 }} />
-        <Text style={[styles.heroTitle, { color: authTheme.colors.brandTeal }]}>{report.title}</Text>
-        <Text style={[styles.findingTitle, { marginBottom: 2 }]}>{report.subtitle}</Text>
-        <Text style={styles.mutedText}>
-          Generated {formatReportDate(report.generatedAt)} · {DATASET_TITLES[report.experiment.dataset]}
-        </Text>
-      </View>
-
-      {report.sections.map((section, index) => (
-        <View
-          key={section.id}
-          style={{
-            paddingVertical: 14,
-            borderBottomWidth: index === report.sections.length - 1 ? 0 : 1,
-            borderBottomColor: authTheme.colors.brandBorder,
-          }}
-        >
-          <Text style={styles.sectionTitle}>{section.title}</Text>
-          {!!section.intro && <Text style={[styles.mutedText, { marginBottom: 8 }]}>{section.intro}</Text>}
-
-          <FindingCards findings={section.findings} />
-
-          {section.paragraphs?.map((paragraph) => (
-            <Text key={paragraph} style={[styles.bodyText, { marginBottom: 6 }]}>
-              • {paragraph}
-            </Text>
-          ))}
-
-          {section.tables?.map((table) => (
-            <ReportTable key={table.caption} table={table} />
-          ))}
-        </View>
-      ))}
-    </Card>
-  );
-}
 
 // Built reports, keyed by experiment id + save time (a re-saved experiment
 // gets a new key, so its report is rebuilt).
@@ -271,6 +178,20 @@ export default function ResearcherReportScreen({ navigation, route }) {
           />
           {!!selected?.note && (
             <Text style={[styles.mutedText, { fontStyle: 'italic', marginTop: 6 }]}>“{selected.note}”</Text>
+          )}
+          {!!selected && (
+            <OutlineButton
+              title="Open in Weight Analysis"
+              small
+              onPress={() =>
+                navigation.navigate(
+                  RESEARCHER_ROUTES.weights,
+                  { dataset: selected.dataset, year: Number(selected.year), section: 'weights', experimentId: selected.id },
+                  { pop: true }
+                )
+              }
+              style={{ alignSelf: 'flex-start', marginTop: 8 }}
+            />
           )}
 
           {report && (

@@ -305,6 +305,7 @@ export function buildReport(experiment, { statistics, analysis, stability }) {
 }
 
 function fileBaseName(report) {
+  if (report.fileName) return report.fileName;
   return `research-report-${report.experiment.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 }
 
@@ -338,7 +339,7 @@ export function shareReportCsv(report) {
     });
   });
 
-  return shareCSV(['UniMatch Research Report', ''], rows, `${fileBaseName(report)}.csv`);
+  return shareCSV([report.title || 'UniMatch Research Report', ''], rows, `${fileBaseName(report)}.csv`);
 }
 
 function escapeHtml(value) {
@@ -430,7 +431,7 @@ export function buildReportHtml(report) {
   <div class="subtitle">${escapeHtml(report.subtitle)}</div>
   <div class="generated">Generated ${escapeHtml(formatDateTime(report.generatedAt))}</div>
   ${sectionsHtml}
-  <div class="footer">UniMatch Research Report · ${escapeHtml(report.datasetLabel)} · ${escapeHtml(report.experiment.name)}</div>
+  <div class="footer">${escapeHtml(report.footer || `UniMatch Research Report · ${report.datasetLabel} · ${report.experiment?.name}`)}</div>
 </body>
 </html>`;
 }

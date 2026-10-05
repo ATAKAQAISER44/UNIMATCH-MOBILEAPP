@@ -4,7 +4,7 @@
 // university and see how its rank moved across QS, THE and ARWU editions.
 // The line chart is drawn with plain Views (no extra chart library).
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   TouchableOpacity,
   View,
@@ -29,188 +29,24 @@ import {
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { authTheme } from '../../styles/authTheme';
 import { fetchUniversityJourney, searchJourneyUniversities } from '../../services/researcherApi';
+import { DATASET_ORDER, DATASET_STYLE, JourneyChart, Legend, useChartGeometry } from '../../components/RankJourneyChart';
 import { shareCSV } from '../../utils/researcherExport';
+import { RESEARCHER_ROUTES } from '../../constants/researcherConstants';
 
-const DATASET_ORDER = ['qs', 'the', 'arwu'];
-const DATASET_STYLE = {
-  qs: { label: 'QS', color: '#008C8C' },
-  the: { label: 'THE', color: '#55B947' },
-  arwu: { label: 'ARWU', color: '#F59E0B' },
-};
+// Last journey shown, so coming back to this screen keeps it.
+let lastJourney = null;
 
-const CHART_HEIGHT = 230;
-const PAD_LEFT = 44;
-const PAD_RIGHT = 18;
-const PAD_TOP = 22;
-const PAD_BOTTOM = 30;
-
-function useChartGeometry(datasets, width) {
-  return useMemo(() => {
-    if (!datasets || !width) return null;
-
-    const allYears = new Set();
-    const allRanks = [];
-
-    Object.values(datasets).forEach((points) => {
-      (points || []).forEach((point) => {
-        if (point.rank === null || point.rank === undefined) return;
-        allYears.add(point.year);
-        allRanks.push(point.rank);
-      });
-    });
-
-    if (!allYears.size || !allRanks.length) return null;
-
-    const years = Array.from(allYears).sort((a, b) => a - b);
-    const minRank = Math.min(...allRanks);
-    const maxRank = Math.max(...allRanks);
-    const rankPad = Math.max(1, Math.round((maxRank - minRank) * 0.2));
-    const rankTop = Math.max(1, minRank - rankPad);
-    const rankBottom = maxRank + rankPad;
-
-    const plotWidth = width - PAD_LEFT - PAD_RIGHT;
-    const plotHeight = CHART_HEIGHT - PAD_TOP - PAD_BOTTOM;
-
-    const xForYear = (year) =>
-      years.length === 1 ? PAD_LEFT + plotWidth / 2 : PAD_LEFT + (years.indexOf(year) / (years.length - 1)) * plotWidth;
-    const yForRank = (rank) => PAD_TOP + ((rank - rankTop) / (rankBottom - rankTop || 1)) * plotHeight;
-
-    return { years, rankTop, rankBottom, xForYear, yForRank, plotHeight, width };
-  }, [datasets, width]);
+function normalName(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
-function Segment({ x1, y1, x2, y2, color }) {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const length = Math.sqrt(dx * dx + dy * dy);
-  const angle = Math.atan2(dy, dx);
-
-  return (
-    <View
-      style={{
-        position: 'absolute',
-        left: (x1 + x2) / 2 - length / 2,
-        top: (y1 + y2) / 2 - 1.25,
-        width: length,
-        height: 2.5,
-        backgroundColor: color,
-        transform: [{ rotate: `${angle}rad` }],
-      }}
-    />
-  );
-}
-
-function JourneyChart({ journey, geometry }) {
-  const { years, rankTop, rankBottom, xForYear, yForRank, plotHeight, width } = geometry;
-  const gridValues = Array.from({ length: 5 }, (_, index) =>
-    Math.round(rankTop + ((rankBottom - rankTop) * index) / 4)
-  );
-
-  return (
-    <View style={{ width, height: CHART_HEIGHT }}>
-      {gridValues.map((value, index) => (
-        <View key={`${value}-${index}`} style={{ position: 'absolute', left: 0, right: 0, top: yForRank(value) - 7 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ width: PAD_LEFT - 6, textAlign: 'right', fontSize: 9.5, fontWeight: '700', color: '#64748B' }}>
-              #{value}
-            </Text>
-            <View style={{ flex: 1, height: 1, backgroundColor: '#E2E8F0', marginLeft: 6, marginRight: PAD_RIGHT }} />
-          </View>
-        </View>
-      ))}
-
-      {years.map((year) => (
-        <Text
-          key={year}
-          style={{
-            position: 'absolute',
-            top: PAD_TOP + plotHeight + 10,
-            left: xForYear(year) - 20,
-            width: 40,
-            textAlign: 'center',
-            fontSize: 10.5,
-            fontWeight: '800',
-            color: authTheme.colors.gray900,
-          }}
-        >
-          {year}
-        </Text>
-      ))}
-
-      {DATASET_ORDER.map((key) => {
-        const points = (journey.datasets[key] || []).filter((point) => point.rank !== null && point.rank !== undefined);
-        if (!points.length) return null;
-        const color = DATASET_STYLE[key].color;
-
-        return (
-          <React.Fragment key={key}>
-            {points.slice(1).map((point, index) => (
-              <Segment
-                key={`${key}-line-${point.year}`}
-                x1={xForYear(points[index].year)}
-                y1={yForRank(points[index].rank)}
-                x2={xForYear(point.year)}
-                y2={yForRank(point.rank)}
-                color={color}
-              />
-            ))}
-            {points.map((point) => (
-              <React.Fragment key={`${key}-${point.year}`}>
-                <View
-                  style={{
-                    position: 'absolute',
-                    left: xForYear(point.year) - 5,
-                    top: yForRank(point.rank) - 5,
-                    width: 10,
-                    height: 10,
-                    borderRadius: 999,
-                    borderWidth: 2.5,
-                    borderColor: color,
-                    backgroundColor: '#FFFFFF',
-                  }}
-                />
-                <Text
-                  style={{
-                    position: 'absolute',
-                    left: xForYear(point.year) - 22,
-                    top: yForRank(point.rank) - 20,
-                    width: 44,
-                    textAlign: 'center',
-                    fontSize: 9.5,
-                    fontWeight: '900',
-                    color,
-                  }}
-                >
-                  #{point.rank}
-                </Text>
-              </React.Fragment>
-            ))}
-          </React.Fragment>
-        );
-      })}
-    </View>
-  );
-}
-
-function Legend() {
-  return (
-    <View style={{ flexDirection: 'row', gap: 14, marginBottom: 8 }}>
-      {DATASET_ORDER.map((key) => (
-        <View key={key} style={styles.rowTop}>
-          <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: DATASET_STYLE[key].color, marginRight: 5 }} />
-          <Text style={[styles.kvValue, { marginTop: 0 }]}>{DATASET_STYLE[key].label}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-export default function ResearcherJourneyScreen({ navigation }) {
-  const [query, setQuery] = useState('');
-  const [selectedName, setSelectedName] = useState('');
+export default function ResearcherJourneyScreen({ navigation, route }) {
+  const requested = route?.params?.university;
+  const [query, setQuery] = useState(lastJourney?.name || '');
+  const [selectedName, setSelectedName] = useState(lastJourney?.name || '');
   const [suggestions, setSuggestions] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [journey, setJourney] = useState(null);
+  const [journey, setJourney] = useState(lastJourney);
   const [journeyLoading, setJourneyLoading] = useState(false);
   const [error, setError] = useState('');
   const [chartWidth, setChartWidth] = useState(0);
@@ -247,7 +83,10 @@ export default function ResearcherJourneyScreen({ navigation }) {
 
     try {
       const data = await fetchUniversityJourney(item.key);
-      if (isCurrent()) setJourney(data);
+      if (isCurrent()) {
+        lastJourney = data;
+        setJourney(data);
+      }
     } catch (loadError) {
       if (!isCurrent()) return;
       setJourney(null);
@@ -256,6 +95,33 @@ export default function ResearcherJourneyScreen({ navigation }) {
       if (isCurrent()) setJourneyLoading(false);
     }
   }
+
+  // Opened from Compare (or elsewhere) with a university already chosen.
+  const requestedName = requested?.name;
+  React.useEffect(() => {
+    if (!requestedName) return;
+    navigation.setParams({ university: undefined });
+    if (normalName(requestedName) === normalName(lastJourney?.name)) return;
+    setQuery(requestedName);
+    setSelectedName(requestedName);
+    setJourneyLoading(true);
+    searchJourneyUniversities(requestedName)
+      .then((data) => {
+        const rows = data.results || [];
+        const wanted = normalName(requestedName);
+        const match = rows.find((row) => normalName(row.name) === wanted) || rows[0];
+        if (match) selectUniversity(match);
+        else {
+          setJourneyLoading(false);
+          setError('No ranking history found for this university.');
+        }
+      })
+      .catch((loadError) => {
+        setJourneyLoading(false);
+        setError(loadError.message);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedName]);
 
   const geometry = useChartGeometry(journey?.datasets, chartWidth);
   const datasetsWithData = journey ? DATASET_ORDER.filter((key) => (journey.datasets[key] || []).length > 0) : [];
@@ -318,12 +184,24 @@ export default function ResearcherJourneyScreen({ navigation }) {
               subtitle={journey.country}
               right={<OutlineButton title="CSV" small onPress={exportJourney} />}
             />
-            <OutlineButton
-              title="University profile"
-              small
-              onPress={() => openUniversity({ name: journey.name, country: journey.country })}
-              style={{ alignSelf: 'flex-start', marginBottom: 10 }}
-            />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+              <OutlineButton
+                title="University profile"
+                small
+                onPress={() => openUniversity({ name: journey.name, country: journey.country })}
+              />
+              <OutlineButton
+                title="Add to Compare"
+                small
+                onPress={() =>
+                  navigation.navigate(
+                    RESEARCHER_ROUTES.compare,
+                    { dataset: datasetsWithData[0] || 'qs', add: journey.name },
+                    { pop: true }
+                  )
+                }
+              />
+            </View>
             <Legend />
 
             <View

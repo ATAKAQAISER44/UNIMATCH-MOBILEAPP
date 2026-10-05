@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../../components/AppText';
 
 import ResearcherLayout from '../../components/researcher/ResearcherLayout';
@@ -34,6 +35,7 @@ import { authTheme } from '../../styles/authTheme';
 import {
   COMPARE_ATTRIBUTE_FIELDS,
   RESEARCHER_DATASETS,
+  RESEARCHER_ROUTES,
   officialDefaultWeights,
   officialMetricLabel,
   resolveDatasetKey,
@@ -49,6 +51,14 @@ import { shareCSV } from '../../utils/researcherExport';
 const MAX_SELECTED = 3;
 const SLOT_COLORS = ['#0D9488', '#22C55E', '#F59E0B'];
 const SLOT_LETTERS = ['A', 'B', 'C'];
+
+// Picks survive leaving the screen (per dataset + edition) for this session.
+const savedPicks = {};
+const picksKey = (dataset, year) => `${dataset}|${year}`;
+
+function normalName(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
 
 function parseNumericValue(value) {
   if (value === null || value === undefined) return null;
@@ -161,7 +171,7 @@ export default function ResearcherCompareScreen({ navigation, route }) {
   // Dataset metadata + ranks under the official weights.
   useEffect(() => {
     const isCurrent = startMetaRequest();
-    setSelected([]);
+    setSelected(savedPicks[picksKey(datasetKey, year)] || []);
     setQuery('');
 
     async function loadMeta() {
@@ -205,6 +215,27 @@ export default function ResearcherCompareScreen({ navigation, route }) {
 
     loadMeta();
   }, [datasetKey, year, reloadKey, startMetaRequest, startPersonalizedRequest]);
+
+  useEffect(() => {
+    savedPicks[picksKey(datasetKey, year)] = selected;
+  }, [selected, datasetKey, year]);
+
+  // "Add to Compare" from the University Journey screen.
+  const pendingAdd = params.add;
+  useEffect(() => {
+    if (!pendingAdd || loadingMeta) return;
+    navigation.setParams({ add: undefined });
+    const wanted = normalName(pendingAdd);
+    fetchResearcherDataset(datasetKey, { year, search: pendingAdd, page: 1, page_size: 8 })
+      .then((data) => {
+        const rows = data.results || [];
+        const match = rows.find((row) => normalName(row.name) === wanted) || rows[0];
+        if (match) addUniversity(match);
+        else setError(`${pendingAdd} is not in ${RESEARCHER_DATASETS[datasetKey].shortName} ${year}.`);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAdd, loadingMeta, datasetKey, year]);
 
   // Search suggestions.
   useEffect(() => {
@@ -407,6 +438,14 @@ export default function ResearcherCompareScreen({ navigation, route }) {
                   style={styles.chipText}
                   numberOfLines={1}
                 />
+                <TouchableOpacity
+                  style={[styles.chipClose, { marginRight: 4 }]}
+                  onPress={() => navigation.navigate(RESEARCHER_ROUTES.journey, { university: { name: item.name, country: item.country } }, { pop: true })}
+                  accessibilityLabel={`Rank journey of ${item.name}`}
+                  hitSlop={6}
+                >
+                  <Ionicons name="trending-up" size={13} color={authTheme.colors.brandTealDark} />
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.chipClose}
                   onPress={() => removeUniversity(item.university_id)}

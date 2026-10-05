@@ -483,7 +483,7 @@ export default function CustomExplorePanel({
     <>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scroll, bottomPadding(insets, 24)]}
+        contentContainerStyle={[styles.scroll, bottomPadding(insets, 120)]}
       >
         {headerComponent ? (
           <View style={{ marginBottom: 12 }}>{headerComponent}</View>
@@ -619,6 +619,7 @@ export default function CustomExplorePanel({
             <PaginatedResults
               title=""
               description=""
+              dataset={datasetKey}
               universities={universities}
               loading={loading}
               activeTab="smart"

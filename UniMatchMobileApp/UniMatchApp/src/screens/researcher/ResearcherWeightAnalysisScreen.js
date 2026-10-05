@@ -289,6 +289,24 @@ export default function ResearcherWeightAnalysisScreen({ navigation, route }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datasetKey, year, reloadKey, startMetaRequest]);
 
+  // Opened from the Research Report with a saved experiment to apply.
+  const latestState = useRef({});
+  latestState.current = { loading, datasetKey, year, metrics };
+  const requestedExperimentId = params.experimentId;
+  useEffect(() => {
+    if (!requestedExperimentId) return;
+    navigation.setParams({ experimentId: undefined });
+    loadSavedExperiments().then((list) => {
+      const experiment = (list || []).find((item) => item.id === requestedExperimentId);
+      if (!experiment) return;
+      const current = latestState.current;
+      const sameEdition = experiment.dataset === current.datasetKey && Number(experiment.year) === Number(current.year);
+      if (sameEdition && !current.loading && current.metrics.length) applyExperiment(experiment, current.metrics);
+      else pendingExperimentRef.current = experiment;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedExperimentId]);
+
   const changeDataset = (nextDataset) => {
     if (nextDataset === datasetKey) return;
     setNotice('');

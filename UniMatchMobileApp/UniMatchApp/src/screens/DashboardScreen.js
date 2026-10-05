@@ -18,6 +18,10 @@ import DashboardHeaderMenu from '../components/dashboard/DashboardHeaderMenu';
 import DashboardHero from '../components/dashboard/DashboardHero';
 import DatasetSection from '../components/dashboard/DatasetSection';
 import ResearcherDashboard from './researcher/ResearcherDashboard';
+import AdminDashboard from './administrator/AdminDashboard';
+import PolicyDashboard from './policymaker/PolicyDashboard';
+import { roleKey } from '../services/userRole';
+import { normalizeIntendedLevel } from '../utils/profileSetupUtils';
 
 import {
   DATASETS,
@@ -31,10 +35,12 @@ import {
   isRecommendedDataset,
 } from '../utils/dashboardUtils';
 
-function isResearcherRole(role) {
-  return String(role || '').trim().toLowerCase() === 'researcher';
-}
-
+// Roles with their own dashboard (no student profile setup or recommendation).
+const ROLE_DASHBOARDS = {
+  researcher: ResearcherDashboard,
+  administrator: AdminDashboard,
+  policymaker: PolicyDashboard,
+};
 export default function DashboardScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState(null);
@@ -51,7 +57,7 @@ export default function DashboardScreen({ navigation }) {
   }, [priority]);
 
   const intendedLevel = useMemo(() => {
-    return academic?.intended_education_level || '—';
+    return normalizeIntendedLevel(academic?.intended_education_level) || '—';
   }, [academic]);
 
   const closeMenu = useCallback(() => {
@@ -84,7 +90,7 @@ export default function DashboardScreen({ navigation }) {
         const { ok, data } = await apiPost(
           '/recommend-dataset',
           {
-            degree: academicData?.intended_education_level || DEFAULT_DEGREE,
+            degree: normalizeIntendedLevel(academicData?.intended_education_level) || DEFAULT_DEGREE,
             priorities: priorities.length ? priorities : [DEFAULT_PRIORITY],
           },
           { timeoutMs: 8000 }
@@ -162,13 +168,18 @@ export default function DashboardScreen({ navigation }) {
 
       const dashboardData = await fetchDashboardData(user.id);
 
-      // Researchers do not fill in the student profile, so they go straight
-      // to the Researcher Dashboard (no profile setup, no recommendation).
-      if (isResearcherRole(dashboardData.profileData?.role)) {
-        updateDashboardState(dashboardData);
+      // No role yet: choose one first.
+      if (!dashboardData.profileData?.role) {
+        navigation.replace('RoleSelection');
         return;
       }
 
+      // Researchers, administrators and policymakers do not fill in the
+      // student profile, so they go straight to their own dashboard.
+      if (ROLE_DASHBOARDS[roleKey(dashboardData.profileData?.role)]) {
+        updateDashboardState(dashboardData);
+        return;
+      }
       if (!dashboardData.profileData?.profile_completed) {
         navigation.replace('ProfileSetup');
         return;
@@ -254,9 +265,10 @@ export default function DashboardScreen({ navigation }) {
     return <LoadingScreen />;
   }
 
-  if (isResearcherRole(profile?.role)) {
+  const RoleDashboard = ROLE_DASHBOARDS[roleKey(profile?.role)];
+  if (RoleDashboard) {
     return (
-      <ResearcherDashboard
+      <RoleDashboard
         navigation={navigation}
         profile={profile}
         refreshing={refreshing}

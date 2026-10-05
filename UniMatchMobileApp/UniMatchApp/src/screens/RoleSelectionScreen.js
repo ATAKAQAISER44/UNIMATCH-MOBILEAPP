@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { supabase } from '../services/supabase';
 import { getSignedInUser } from '../services/session';
+import { resetUserRole } from '../services/userRole';
 import { AlertBox } from '../components';
 import { authTheme } from '../styles/authTheme';
 import { roleSelectionStyles as styles } from '../styles/roleSelectionStyles';
@@ -25,28 +26,28 @@ const logo = require('../../assets/images/icon.png');
 const ROLES = [
   {
     title: 'Student',
-    description: 'Find universities that fit your profile.',
+    description: 'Personalised rankings, chances and costs for your profile.',
     icon: '🎓',
     color: authTheme.colors.brandTeal,
     light: authTheme.colors.brandMintDeep,
   },
   {
     title: 'Researcher',
-    description: 'Explore and analyse ranking data.',
+    description: 'Analyse ranking data, weights and rank stability.',
     icon: '🔬',
     color: '#0D9488',
     light: '#ECFDF5',
   },
   {
     title: 'Policymaker',
-    description: 'Compare universities and trends.',
+    description: 'Compare countries and plan education policy.',
     icon: '📊',
     color: '#10B981',
     light: '#ECFDF5',
   },
   {
     title: 'University Administrator',
-    description: 'Review rankings and standing.',
+    description: 'Track your university’s rank, profile and peers.',
     icon: '🏫',
     color: '#059669',
     light: '#ECFDF5',
@@ -156,6 +157,8 @@ export default function RoleSelectionScreen({ navigation }) {
         return;
       }
 
+      // Menus and role guards use the new role from now on.
+      resetUserRole();
       if (selectedRole === 'Student') {
         navigation.replace('ProfileSetup');
         return;

@@ -21,9 +21,12 @@ import * as Sharing from 'expo-sharing';
 import { apiGet, apiPost, getApiErrorMessage, HEAVY_TIMEOUT_MS } from '../services/api';
 import { supabase } from '../services/supabase';
 import { getSignedInUser } from '../services/session';
+import { normalizeIntendedLevel } from '../utils/profileSetupUtils';
 
 import CompareBar from '../components/CompareBar';
 import CompareModal from '../components/CompareModal';
+import { useCompareList } from '../services/compareList';
+import { useSavedUniversities } from '../services/savedUniversities';
 
 import DashboardTopBar from '../components/dashboard/DashboardTopBar';
 import DashboardHeaderMenu from '../components/dashboard/DashboardHeaderMenu';
@@ -75,7 +78,6 @@ import {
   INFO_CONTENT,
   MY_RANKING_STORAGE_KEY,
   MY_PAGE_SIZE,
-  SAVED_UNIVERSITIES_KEY,
   TOP_N,
 } from '../constants/myRankingConstants';
 
@@ -88,7 +90,7 @@ import {
 
 export default function RankingsScreen({ route = {}, navigation }) {
   const insets = useSafeAreaInsets();
-  const { dataset = 'qs' } = route?.params || {};
+  const { dataset = 'qs', searchText, openTab, searchNonce } = route?.params || {};
 
   const datasetKey = String(dataset || 'qs').toLowerCase();
   const config = DATASET_CONFIG[datasetKey] || DATASET_CONFIG.qs;
@@ -101,10 +103,22 @@ export default function RankingsScreen({ route = {}, navigation }) {
 
   const [officialResults, setOfficialResults] = useState([]);
   const [myResults, setMyResults] = useState([]);
-  const [savedList, setSavedList] = useState([]);
-  const [compareList, setCompareList] = useState([]);
+  const savedStore = useSavedUniversities();
+  const savedList = savedStore.items;
+  const { reload: reloadSaved, toggle: toggleSaved } = savedStore;
+  // Shared with Saved / Compare Universities and Smart Match.
+  const compare = useCompareList();
+  const compareList = compare.items;
+  const [search, setSearch] = useState(searchText || '');
 
-  const [search, setSearch] = useState('');
+  // Opened from "Search Universities" with text: show it in the official list.
+  useEffect(() => {
+    if (searchText === undefined) return;
+    setActiveTab(openTab || 'official');
+    setSearch(searchText || '');
+    // searchNonce marks a new search request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchText, openTab, searchNonce]);
   const [countryFilter, setCountryFilter] = useState(ALL_COUNTRIES);
   const [rowsPerPage, setRowsPerPage] = useState(50);
 
@@ -393,25 +407,11 @@ export default function RankingsScreen({ route = {}, navigation }) {
     [activeTab, buildParams, datasetKey, rowsPerPage]
   );
 
+  // Saved universities are shared with every student screen
+  // (services/savedUniversities.js); this reloads them on demand.
   const loadSavedUniversities = useCallback(async () => {
-    try {
-      const raw = await AsyncStorage.getItem(SAVED_UNIVERSITIES_KEY);
-      const parsed = JSON.parse(raw || '[]');
-
-      setSavedList(Array.isArray(parsed) ? parsed : []);
-    } catch {
-      setSavedList([]);
-    }
-  }, []);
-
-  const persistSavedUniversities = useCallback(async (items) => {
-    try {
-      await AsyncStorage.setItem(SAVED_UNIVERSITIES_KEY, JSON.stringify(items));
-    } catch (error) {
-      console.log('Saved universities persist error:', error);
-    }
-  }, []);
-
+    reloadSaved();
+  }, [reloadSaved]);
   const loadSavedRankings = useCallback(async () => {
     try {
       const raw = await AsyncStorage.getItem(MY_RANKING_STORAGE_KEY);
@@ -527,7 +527,7 @@ export default function RankingsScreen({ route = {}, navigation }) {
   );
   const openCompareModal = useCallback(() => setCompareModalVisible(true), []);
   const closeCompareModal = useCallback(() => setCompareModalVisible(false), []);
-  const clearCompareList = useCallback(() => setCompareList([]), []);
+  const clearCompareList = compare.clear;
 
   const openInfo = useCallback((type) => {
     setInfoModal(INFO_CONTENT[type] || null);
@@ -566,92 +566,17 @@ export default function RankingsScreen({ route = {}, navigation }) {
 
   // PERF: Set lookups instead of scanning the compare/saved lists for every
   // row on every render (50-100 rows x list length).
-  const comparedKeys = useMemo(
-    () => new Set(compareList.map(getUniversityKey)),
-    [compareList]
-  );
-
-  const savedKeys = useMemo(
-    () => new Set(savedList.map(getUniversityKey)),
-    [savedList]
-  );
-
-  const isCompared = useCallback(
-    (university) => comparedKeys.has(getUniversityKey(university)),
-    [comparedKeys]
-  );
-
-  const isSaved = useCallback(
-    (university) => savedKeys.has(getUniversityKey(university)),
-    [savedKeys]
-  );
-
-  const handleAddToCompare = useCallback((university) => {
-    setCompareList((previous) => {
-      const key = getUniversityKey(university);
-      const alreadyExists = previous.some(
-        (item) => getUniversityKey(item) === key
-      );
-
-      if (alreadyExists) return previous;
-
-      if (previous.length >= 3) {
-        Alert.alert('Limit reached', 'You can compare up to 3 universities. Remove one to add another.');
-        return previous;
-      }
-
-      return [...previous, university];
-    });
-  }, []);
-
-  const handleRemoveFromCompare = useCallback((university) => {
-    const key = getUniversityKey(university);
-
-    setCompareList((previous) =>
-      previous.filter((item) => getUniversityKey(item) !== key)
-    );
-  }, []);
-
-  const handleToggleCompare = useCallback((university) => {
-    const key = getUniversityKey(university);
-
-    setCompareList((previous) => {
-      const alreadyCompared = previous.some(
-        (item) => getUniversityKey(item) === key
-      );
-
-      if (alreadyCompared) {
-        return previous.filter((item) => getUniversityKey(item) !== key);
-      }
-
-      if (previous.length >= 3) {
-        Alert.alert('Limit reached', 'You can compare up to 3 universities. Remove one to add another.');
-        return previous;
-      }
-
-      return [...previous, university];
-    });
-  }, []);
+  const isCompared = compare.isCompared;
+  const isSaved = savedStore.isSaved;
+  const handleAddToCompare = compare.add;
+  const handleRemoveFromCompare = compare.remove;
+  const handleToggleCompare = compare.toggle;
 
   const handleToggleSave = useCallback(
     (university) => {
-      const key = getUniversityKey(university);
-
-      setSavedList((previous) => {
-        const alreadySaved = previous.some(
-          (item) => getUniversityKey(item) === key
-        );
-
-        const updated = alreadySaved
-          ? previous.filter((item) => getUniversityKey(item) !== key)
-          : [...previous, university];
-
-        persistSavedUniversities(updated);
-
-        return updated;
-      });
+      toggleSaved(university, datasetKey);
     },
-    [persistSavedUniversities]
+    [toggleSaved, datasetKey]
   );
 
   const getExportRows = useCallback(
@@ -794,6 +719,7 @@ export default function RankingsScreen({ route = {}, navigation }) {
       { data: geographic },
       { data: financial },
       { data: tests },
+      { data: account },
     ] = await Promise.all([
       supabase
         .from('academic_preferences')
@@ -811,10 +737,15 @@ export default function RankingsScreen({ route = {}, navigation }) {
         .eq('user_id', user.id)
         .maybeSingle(),
       supabase.from('user_test_scores').select('*').eq('user_id', user.id),
+      // Home country: the backend uses the local fee when it matches.
+      supabase.from('profiles').select('country').eq('id', user.id).maybeSingle(),
     ]);
 
     return {
-      academic: academic || {},
+      user: { country: account?.country || '' },
+      academic: academic
+        ? { ...academic, intended_education_level: normalizeIntendedLevel(academic.intended_education_level) }
+        : {},
       geographic: geographic || {},
       financial: financial || {},
       tests: tests || [],

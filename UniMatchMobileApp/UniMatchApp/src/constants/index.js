@@ -45,7 +45,7 @@ export const REGION_COUNTRIES = {
 };
 
 export const EDUCATION_LEVELS = ['High School', 'Intermediate / A-Level', "Bachelor's", "Master's"];
-export const INTENDED_LEVELS = ['BS', 'MS', 'MS leading to PhD', 'PhD'];
+export const INTENDED_LEVELS = ['Bachelor', 'Master', 'MS leading to PhD', 'PhD'];
 export const SCORE_TYPES = ['GPA/CGPA', 'Percentage'];
 export const SCHOLARSHIP_OPTIONS = ['Scholarship-supported', 'Fully funded', 'Self-funded'];
 

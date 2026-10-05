@@ -219,7 +219,7 @@ export const researcherStyles = StyleSheet.create({
   // ── Buttons ────────────────────────────────────────────────────────────
   gradientButtonOuter: { borderRadius: 14, overflow: 'hidden', ...authTheme.shadow.button },
   gradientButton: { minHeight: 44, paddingHorizontal: 16, ...center },
-  gradientButtonSmall: { minHeight: 34, paddingHorizontal: 12 },
+  gradientButtonSmall: { minHeight: 36, paddingHorizontal: 12 },
   gradientButtonText: { fontSize: 13, lineHeight: 17, fontWeight: '900', color: '#FFFFFF' },
   outlineButton: {
     minHeight: 42,
@@ -230,7 +230,7 @@ export const researcherStyles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     ...center,
   },
-  outlineButtonSmall: { minHeight: 32, paddingHorizontal: 10, borderRadius: 11, borderWidth: 1 },
+  outlineButtonSmall: { minHeight: 36, paddingHorizontal: 10, borderRadius: 11, borderWidth: 1 },
   outlineButtonText: { fontSize: 13, fontWeight: '900', color: colors.brandTeal },
   dangerButton: { borderColor: '#FECACA', backgroundColor: '#FEF2F2' },
   dangerButtonText: { color: '#DC2626' },

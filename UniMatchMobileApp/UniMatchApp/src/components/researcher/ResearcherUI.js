@@ -34,7 +34,7 @@ import {
 const LOGO = require('../../../assets/images/icon.png');
 
 // ── Top bar ────────────────────────────────────────────────────────────────
-export function ResearcherTopBar({ onBack, onMenu }) {
+export function ResearcherTopBar({ onBack, onMenu, roleLabel = 'RESEARCHER' }) {
   // The bar runs under the status bar / notch; the inset keeps its buttons
   // clear of it on every device.
   const insets = useSafeAreaInsets();
@@ -62,7 +62,7 @@ export function ResearcherTopBar({ onBack, onMenu }) {
         </View>
         <View>
           <Text style={styles.navBrand}>UniMatch</Text>
-          <Text style={styles.navRole}>RESEARCHER</Text>
+          <Text style={styles.navRole}>{roleLabel}</Text>
         </View>
       </View>
 
@@ -71,7 +71,7 @@ export function ResearcherTopBar({ onBack, onMenu }) {
           style={styles.topButton}
           activeOpacity={0.82}
           onPress={onMenu}
-          accessibilityLabel="Open researcher menu"
+          accessibilityLabel="Open app menu"
         >
           <Ionicons name="grid-outline" size={18} color="#FFFFFF" />
         </TouchableOpacity>
@@ -83,7 +83,8 @@ export function ResearcherTopBar({ onBack, onMenu }) {
 }
 
 // ── Headings & cards ───────────────────────────────────────────────────────
-export function PageHeader({ eyebrow, title, subtitle, children }) {
+// hint: optional one-line "how to use" instruction under the subtitle.
+export function PageHeader({ eyebrow, title, subtitle, hint, children }) {
   return (
     <View style={styles.heroCard}>
       {!!eyebrow && (
@@ -94,6 +95,12 @@ export function PageHeader({ eyebrow, title, subtitle, children }) {
       )}
       <Text style={styles.heroTitle}>{title}</Text>
       {!!subtitle && <Text style={styles.heroSubtitle}>{subtitle}</Text>}
+      {!!hint && (
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 8 }}>
+          <Ionicons name="information-circle-outline" size={14} color={authTheme.colors.brandTeal} style={{ marginTop: 1, marginRight: 5 }} />
+          <Text style={[styles.heroSubtitle, styles.flex1, { color: authTheme.colors.gray700 }]}>{hint}</Text>
+        </View>
+      )}
       {children}
     </View>
   );

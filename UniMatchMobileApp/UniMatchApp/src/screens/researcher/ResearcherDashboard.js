@@ -4,7 +4,8 @@
 // Rendered by DashboardScreen, so the "Dashboard" route stays the same for
 // every role.
 
-import React, { memo } from 'react';
+import React, { memo, useCallback, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   Image,
   TouchableOpacity,
@@ -13,7 +14,8 @@ import {
 import { Text } from '../../components/AppText';
 
 import ResearcherLayout from '../../components/researcher/ResearcherLayout';
-import { PageHeader } from '../../components/researcher/ResearcherUI';
+import { Card, PageHeader } from '../../components/researcher/ResearcherUI';
+import { loadSavedExperiments } from '../../utils/researcherExperiments';
 import { dashboardStyles } from '../../styles/dashboardStyles';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import {
@@ -103,6 +105,47 @@ const ToolCard = memo(function ToolCard({ tool, onPress }) {
   );
 });
 
+function RecentExperiments({ navigation }) {
+  const [experiments, setExperiments] = useState([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadSavedExperiments().then((list) => setExperiments((list || []).slice(0, 3)));
+    }, [])
+  );
+
+  if (!experiments.length) return null;
+
+  return (
+    <View style={dashboardStyles.datasetSection}>
+      <Text style={dashboardStyles.sectionTitle}>Recent experiments</Text>
+      <Card>
+        {experiments.map((item, index) => (
+          <TouchableOpacity
+            key={item.id}
+            activeOpacity={0.8}
+            style={[
+              styles.rowBetween,
+              { paddingVertical: 10, minHeight: 44 },
+              index > 0 && { borderTopWidth: 1, borderTopColor: '#E8F3EE' },
+            ]}
+            onPress={() => navigation.navigate(RESEARCHER_ROUTES.report, { experimentId: item.id }, { pop: true })}
+          >
+            <View style={styles.flex1}>
+              <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.rowSub}>
+                {(RESEARCHER_DATASETS[item.dataset]?.shortName || String(item.dataset).toUpperCase())} {item.year}
+                {item.createdAt ? ` · ${new Date(item.createdAt).toLocaleDateString()}` : ''}
+              </Text>
+            </View>
+            <Text style={dashboardStyles.openText}>Report →</Text>
+          </TouchableOpacity>
+        ))}
+      </Card>
+    </View>
+  );
+}
+
 export default function ResearcherDashboard({ navigation, profile, refreshing, onRefresh }) {
   return (
     <ResearcherLayout
@@ -139,6 +182,8 @@ export default function ResearcherDashboard({ navigation, profile, refreshing, o
           ))}
         </View>
       </View>
+
+      <RecentExperiments navigation={navigation} />
     </ResearcherLayout>
   );
 }

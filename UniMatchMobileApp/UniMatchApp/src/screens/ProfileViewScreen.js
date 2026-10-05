@@ -20,6 +20,12 @@ import { topBarPadding } from '../utils/safeArea';
 
 import { supabase } from '../services/supabase';
 import { getSignedInUser } from '../services/session';
+import { normalizeIntendedLevel } from '../utils/profileSetupUtils';
+import { roleKey } from '../services/userRole';
+import { useUserSetting } from '../services/backendData';
+
+// Non-student roles see their account details only.
+const ACCOUNT_ICON = { researcher: 'flask-outline', administrator: 'business-outline', policymaker: 'earth-outline' };
 import { authTheme } from '../styles/authTheme';
 import { dashboardStyles } from '../styles/dashboardStyles';
 import { profileViewStyles as styles } from '../styles/profileViewStyles';
@@ -28,6 +34,8 @@ const LOGO = require('../../assets/images/icon.png');
 
 export default function ProfileViewScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const [adminInstitution] = useUserSetting('admin_institution');
+  const [policyCountry] = useUserSetting('policy_country');
   const [profileData, setProfileData] = useState({
     profile: null,
     academic: null,
@@ -162,7 +170,7 @@ export default function ProfileViewScreen({ navigation }) {
       {
         icon: 'trending-up-outline',
         label: 'Intended Level',
-        value: academic?.intended_education_level,
+        value: normalizeIntendedLevel(academic?.intended_education_level),
       },
       {
         icon: 'book-outline',
@@ -284,9 +292,17 @@ export default function ProfileViewScreen({ navigation }) {
     );
   }
 
-  // Researchers have no student preferences, so they see their account
-  // details only (and no "Edit Profile Setup", which is the student flow).
-  if (String(profile?.role || '').trim().toLowerCase() === 'researcher') {
+  // Researchers, administrators and policymakers have no student
+  // preferences, so they see their account details only (and no
+  // "Edit Profile Setup", which is the student flow).
+  const accountRole = roleKey(profile?.role);
+  if (ACCOUNT_ICON[accountRole]) {
+    const extraRow =
+      accountRole === 'administrator'
+        ? { icon: 'school-outline', label: 'Your university', value: adminInstitution?.name || 'Not chosen yet' }
+        : accountRole === 'policymaker'
+          ? { icon: 'flag-outline', label: 'Your country', value: policyCountry || 'Not chosen yet' }
+          : null;
     return (
       <View style={styles.screen}>
         <ProfileTopBar onBackPress={handleBack} />
@@ -299,14 +315,15 @@ export default function ProfileViewScreen({ navigation }) {
           <View style={styles.sectionsWrap}>
             <ProfileSection
               title={profile?.full_name || 'UniMatch User'}
-              subtitle="Researcher account"
-              icon="flask-outline"
+              subtitle={`${profile?.role} account`}
+              icon={ACCOUNT_ICON[accountRole]}
             >
               <ProfileRows
                 rows={[
                   { icon: 'person-outline', label: 'Full Name', value: profile?.full_name },
                   { icon: 'mail-outline', label: 'Email', value: profile?.email || profileData.email },
-                  { icon: 'briefcase-outline', label: 'Role', value: profile?.role, isLast: true },
+                  { icon: 'briefcase-outline', label: 'Role', value: profile?.role, isLast: !extraRow },
+                  ...(extraRow ? [{ ...extraRow, isLast: true }] : []),
                 ]}
               />
             </ProfileSection>
@@ -449,7 +466,7 @@ function ProfileHeaderCard({
           <MiniInfoPill
             icon="school-outline"
             label="Level"
-            value={academic?.intended_education_level || 'Not set'}
+            value={normalizeIntendedLevel(academic?.intended_education_level) || 'Not set'}
           />
 
           <MiniInfoPill

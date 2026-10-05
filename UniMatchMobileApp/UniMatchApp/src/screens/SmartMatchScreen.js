@@ -1,25 +1,29 @@
 
 // src/screens/SmartMatchScreen.js
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { View, StatusBar } from 'react-native';
 
 import { apiPost, getApiErrorMessage, HEAVY_TIMEOUT_MS } from '../services/api';
 import { supabase } from '../services/supabase';
 import { getSignedInUser } from '../services/session';
+import { normalizeIntendedLevel } from '../utils/profileSetupUtils';
 import { authTheme } from '../styles/authTheme';
 import { smartMatchStyles as styles } from '../styles/smartMatchStyles';
 
 import ProfileMatchPanel from '../components/smart-match/ProfileMatchPanel';
 import CustomExplorePanel from '../components/smart-match/CustomExplorePanel';
 import SmartMatchTopBar from '../components/smart-match/SmartMatchTopBar';
+import CompareBar from '../components/CompareBar';
+import CompareModal from '../components/CompareModal';
+import { useCompareList } from '../services/compareList';
 import SmartMatchHeaderCard from '../components/smart-match/SmartMatchHeaderCard';
 
 // 0 = no limit: every matching university is returned and paged in the app.
 const DEFAULT_TOP_N = 0;
 const DEFAULT_SORT_BY = 'official_rank';
 const DEFAULT_SORT_ORDER = 'asc';
-const DEFAULT_DEGREE = 'MS';
+const DEFAULT_DEGREE = 'Master';
 const DEFAULT_PRIORITY = 'Balanced Preference';
 
 const LOGIN_SCREEN = 'Login';
@@ -165,6 +169,9 @@ export default function SmartMatchScreen({ route = {}, navigation }) {
         .select('*')
         .eq('user_id', userId)
         .maybeSingle(),
+
+      // Home country: the backend uses the local fee when it matches.
+      supabase.from('profiles').select('country').eq('id', userId).maybeSingle(),
     ]);
 
     const loadError = getSupabaseError(responses);
@@ -177,12 +184,16 @@ export default function SmartMatchScreen({ route = {}, navigation }) {
       financialResponse,
       testsResponse,
       priorityResponse,
+      accountResponse,
     ] = responses;
 
     const priorityData = priorityResponse.data || {};
 
+    const academic = academicResponse.data || {};
+
     return {
-      academic: academicResponse.data || {},
+      user: { country: accountResponse.data?.country || '' },
+      academic: { ...academic, intended_education_level: normalizeIntendedLevel(academic.intended_education_level) },
       geographic: geographicResponse.data || {},
       financial: financialResponse.data || {},
       tests: testsResponse.data || [],
@@ -213,6 +224,24 @@ export default function SmartMatchScreen({ route = {}, navigation }) {
     setProfileResults([]);
   }, []);
 
+  // The student's home country, so a temporary profile typed in Profile
+  // Match also gets local fees where they apply.
+  const homeCountryRef = useRef('');
+  useEffect(() => {
+    let active = true;
+    getSignedInUser()
+      .then(({ data }) =>
+        data?.user ? supabase.from('profiles').select('country').eq('id', data.user.id).maybeSingle() : { data: null }
+      )
+      .then(({ data }) => {
+        if (active) homeCountryRef.current = data?.country || '';
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const buildSmartMatchPayload = useCallback(
     ({ profileToSend, ignoredList, sortBy, sortOrder, topN }) => ({
       priority: getPriorityFromProfile(profileToSend),
@@ -222,6 +251,7 @@ export default function SmartMatchScreen({ route = {}, navigation }) {
       sort_order: sortOrder,
       profile: {
         ...profileToSend,
+        user: profileToSend?.user?.country ? profileToSend.user : { country: homeCountryRef.current },
         _ignored_filters: ignoredList,
       },
     }),
@@ -407,6 +437,10 @@ export default function SmartMatchScreen({ route = {}, navigation }) {
 
   const isProfileTab = activeSubTab === PROFILE_TAB;
 
+  // Compare up to 3 results (shared with Saved / Compare Universities).
+  const compare = useCompareList();
+  const [compareOpen, setCompareOpen] = useState(false);
+  const comparePool = useMemo(() => [...profileResults, ...customResults], [profileResults, customResults]);
   return (
     <View style={styles.screen}>
       <StatusBar
@@ -421,6 +455,7 @@ export default function SmartMatchScreen({ route = {}, navigation }) {
           {isProfileTab ? (
             <ProfileMatchPanel
               headerComponent={headerComponent}
+              datasetKey={datasetKey}
               universities={profileResults}
               loading={profileLoading}
               smartNotice={profileNotice}
@@ -438,6 +473,21 @@ export default function SmartMatchScreen({ route = {}, navigation }) {
           )}
         </View>
       </View>
+
+      <CompareBar
+        compareList={compare.items}
+        onOpenCompare={() => setCompareOpen(true)}
+        onClearCompare={compare.clear}
+      />
+      <CompareModal
+        visible={compareOpen}
+        compareList={compare.items}
+        allUniversities={comparePool}
+        onClose={() => setCompareOpen(false)}
+        onAddUniversity={compare.add}
+        onRemove={compare.remove}
+        onGoToRankings={() => setCompareOpen(false)}
+      />
     </View>
   );
 }

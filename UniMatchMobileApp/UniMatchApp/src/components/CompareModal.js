@@ -1,8 +1,10 @@
 
 // src/components/CompareModal.js
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import UniversityLink from './UniversityLink';
+import { ActivityIndicator, Linking } from 'react-native';
+import { identityKey, searchAllRankings } from '../services/universitySearch';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
@@ -19,93 +21,54 @@ import { authTheme } from '../styles/authTheme';
 
 const MAX_COMPARE_LIMIT = 3;
 
-const HIDDEN_KEYS = new Set(['raw', 'id', 'university_id']);
-
-const FIELD_LABELS = {
-  name: 'University',
-  university_name: 'University',
-  Institution_Name: 'University',
-  country: 'Country',
-  Country: 'Country',
-  region: 'Region',
-  Region: 'Region',
-  rank: 'Official Rank',
-  Rank: 'Official Rank',
-  official_rank: 'Official Rank',
-  world_rank: 'World Rank',
-  global_rank: 'Global Rank',
-  RANK_2025: 'Official Rank',
-  personalized_rank: 'Personalized Rank',
-  personalized_score: 'Personalized Score',
-  final_score: 'Final Score',
-  match_score: 'Match Score',
-  Overall_Score: 'Overall Score',
-  Academic_Reputation_Score: 'Academic Reputation',
-  Employer_Reputation_Score: 'Employer Reputation',
-  Faculty_Student_Score: 'Faculty-Student Ratio',
-  Citations_per_Faculty_Score: 'Citations Per Faculty',
-  International_Faculty_Score: 'International Faculty',
-  International_Students_Score: 'International Students',
-  International_Research_Network_Score: 'International Research Network',
-  Employment_Outcomes_Score: 'Employment Outcomes',
-  Sustainability_Score: 'Sustainability',
-  scores_teaching: 'Teaching',
-  scores_research: 'Research',
-  scores_citations: 'Citations',
-  scores_industry_income: 'Industry Income',
-  scores_international_outlook: 'International Outlook',
-  Tuition_Fee_Local: 'Local Tuition Fee',
-  Tuition_Fee_International: 'International Tuition Fee',
-  Living_Cost: 'Living Cost',
-  Scholarship: 'Scholarship',
-  Acceptance_Rate: 'Acceptance Rate',
-  Internship_Available: 'Internship Available',
-  Part_Time_Job_Allowed: 'Part-Time Job Allowed',
-  Graduate_Employability_Rate: 'Graduate Employability Rate',
-  Language: 'Language',
-  Public_Private: 'Public / Private',
-};
-
-const PRIORITY_FIELDS = [
-  'official_rank',
-  'rank',
-  'Rank',
-  'RANK_2025',
-  'personalized_rank',
-  'personalized_score',
-  'final_score',
-  'match_score',
-  'country',
-  'Country',
-  'region',
-  'Region',
-  'Overall_Score',
-  'Academic_Reputation_Score',
-  'Employer_Reputation_Score',
-  'Faculty_Student_Score',
-  'Citations_per_Faculty_Score',
-  'International_Faculty_Score',
-  'International_Students_Score',
-  'International_Research_Network_Score',
-  'Employment_Outcomes_Score',
-  'Sustainability_Score',
-  'scores_teaching',
-  'scores_research',
-  'scores_citations',
-  'scores_industry_income',
-  'scores_international_outlook',
-  'Tuition_Fee_Local',
-  'Tuition_Fee_International',
-  'Living_Cost',
-  'Scholarship',
-  'Acceptance_Rate',
-  'Internship_Available',
-  'Part_Time_Job_Allowed',
-  'Graduate_Employability_Rate',
-  'Language',
-  'Public_Private',
+// Attribute groups of the comparison table (web: CompareModal tabs).
+// Each row: [label, field names to try in order, isLink].
+const RANKING_ROWS = [
+  ['Country', ['country', 'Country', 'Location', 'location']],
+  ['Region', ['Region', 'region']],
+  ['Official Rank', ['official_rank', 'rank', 'World_Rank']],
+  ['Current Rank', ['my_rank', 'personalized_rank', 'current_rank']],
+];
+const COST_ROWS = [
+  ['Tuition Fee (Local)', ['Tuition_Fee_local', 'tuition_fee_local', 'Tuition Fee (local)']],
+  ['Tuition Fee (International)', ['Tuition_Fee_international', 'tuition_fee_international', 'Tuition Fee (international)']],
+  ['Living Cost', ['Living_Cost', 'living_cost', 'Living Cost']],
+  ['Scholarship', ['Scholarship_YesNo', 'scholarship', 'Scholarship (Yes/No)', 'Scholarship']],
+];
+const ACADEMIC_ROWS = [
+  ['Minimum CGPA', ['Minimum_CGPA_Requirement', 'cgpa_requirement', 'Minimum CGPA Requirement']],
+  ['Standardized Test', ['Standardized_Test', 'tests']],
+  ['Own Admission Test', ['University_Acceptance_Test_YesNo', 'university_acceptance_test']],
+  ['Programmes Offered', ['Programmes_Offered', 'programs']],
+  ['Degree Levels', ['Degree_Level_offered', 'degree_level']],
+  ['Acceptance Rate', ['Acceptance_Rate', 'acceptance_rate', 'Acceptance Rate']],
+];
+const OUTCOME_ROWS = [
+  ['Internship Available', ['Internship_Available', 'internship']],
+  ['Part-Time Job Allowed', ['PartTime_Job_Allowed', 'Part_Time_Job_Allowed', 'part_time_job']],
+  ['Graduate Employability', ['Graduate_Employability_Rate', 'employability_rate']],
+  ['Language', ['Language', 'language']],
+  ['Public / Private', ['Public__Private', 'Public_Private', 'public_private']],
+  ['Gender Equality', ['Gender_Equality', 'gender_equality']],
+];
+const LINK_ROWS = [
+  ['Official Website', ['University_Official_Website_link', 'official_website', 'website'], true],
+  ['Scholarship Webpage', ['University_ScholarShip_webpage_link', 'scholarship_link'], true],
+];
+const COMPARE_GROUPS = [
+  { key: 'all', label: 'All', rows: [...RANKING_ROWS, ...COST_ROWS, ...ACADEMIC_ROWS, ...OUTCOME_ROWS, ...LINK_ROWS] },
+  { key: 'ranking', label: 'Ranking', rows: RANKING_ROWS },
+  { key: 'cost', label: 'Cost', rows: COST_ROWS },
+  { key: 'academics', label: 'Academics', rows: ACADEMIC_ROWS },
+  { key: 'outcomes', label: 'Outcomes', rows: OUTCOME_ROWS },
+  { key: 'links', label: 'Links', rows: LINK_ROWS },
 ];
 
+function isBlank(value) {
+  if (value === null || value === undefined) return true;
+  const text = String(value).trim();
+  return !text || ['nan', 'n/a', 'none', 'null'].includes(text.toLowerCase());
+}
 function getRaw(item) {
   return item?.raw && typeof item.raw === 'object' ? item.raw : {};
 }
@@ -178,71 +141,20 @@ function getUniversityKey(item) {
   ).toLowerCase()}`;
 }
 
-function formatKey(key) {
-  return (
-    FIELD_LABELS[key] ||
-    String(key || '')
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (letter) => letter.toUpperCase())
-  );
-}
 
-function formatValue(key, value) {
-  if (value === null || value === undefined || value === '') return '—';
-  if (typeof value === 'object') return '—';
-
-  const lowerKey = String(key || '').toLowerCase();
-  const numericValue = Number(value);
-
-  const shouldNotPercent =
-    lowerKey.includes('rank') ||
-    lowerKey.includes('fee') ||
-    lowerKey.includes('cost') ||
-    lowerKey.includes('cgpa') ||
-    lowerKey.includes('year') ||
-    lowerKey.includes('id');
-
-  if (!Number.isNaN(numericValue) && value !== '' && !shouldNotPercent) {
-    if (numericValue >= 0 && numericValue <= 1) {
-      return `${(numericValue * 100).toFixed(1)}%`;
-    }
-
-    return String(value);
-  }
-
-  return String(value);
-}
-
-function getValue(item, key) {
-  const merged = getMergedItem(item);
-  return merged[key];
-}
-
-function getCompareFields(compareList) {
-  const fieldSet = new Set();
-
-  compareList.forEach((item) => {
-    const merged = getMergedItem(item);
-
-    Object.entries(merged).forEach(([key, value]) => {
-      if (HIDDEN_KEYS.has(key)) return;
-      if (value === null || value === undefined || value === '') return;
-      if (typeof value === 'object') return;
-
-      fieldSet.add(key);
-    });
-  });
-
-  const priority = PRIORITY_FIELDS.filter((key) => fieldSet.has(key));
-  const remaining = Array.from(fieldSet)
-    .filter((key) => !priority.includes(key))
-    .sort((a, b) => formatKey(a).localeCompare(formatKey(b)));
-
-  return [...priority, ...remaining];
+// Same university from QS, THE or ARWU counts as one (as in the compare list).
+function sameIdentity(item) {
+  return identityKey(getUniversityName(item), getUniversityCountry(item));
 }
 
 function isSameUniversity(first, second) {
-  return getUniversityKey(first) === getUniversityKey(second);
+  return sameIdentity(first) === sameIdentity(second);
+}
+
+function groupValue(item, fields) {
+  const merged = getMergedItem(item);
+  const found = fields.map((field) => merged[field]).find((value) => !isBlank(value));
+  return found === undefined ? null : found;
 }
 
 export default function CompareModal({
@@ -255,15 +167,40 @@ export default function CompareModal({
   onGoToRankings,
 }) {
   const [searchText, setSearchText] = useState('');
+  const [group, setGroup] = useState('all');
+  const [remoteResults, setRemoteResults] = useState([]);
+  const [remoteLoading, setRemoteLoading] = useState(false);
   const insets = useSafeAreaInsets();
   const canAddMore = compareList.length < MAX_COMPARE_LIMIT;
   const cleanSearch = searchText.trim().toLowerCase();
 
-  const compareFields = useMemo(
-    () => getCompareFields(compareList),
-    [compareList]
-  );
+  // Rows of the selected group that at least one university has a value for.
+  const groupRows = useMemo(() => {
+    const rows = COMPARE_GROUPS.find((item) => item.key === group)?.rows || [];
+    return rows.filter(([, fields]) => compareList.some((university) => groupValue(university, fields) !== null));
+  }, [compareList, group]);
 
+  // Also search QS, THE and ARWU on the server (web: live search), so any
+  // university can be added, not only those already on screen.
+  useEffect(() => {
+    let active = true;
+    if (cleanSearch.length < 2) {
+      setRemoteResults([]);
+      setRemoteLoading(false);
+      return undefined;
+    }
+    setRemoteLoading(true);
+    const timer = setTimeout(() => {
+      searchAllRankings(searchText.trim())
+        .then((list) => active && setRemoteResults(list.slice(0, 15)))
+        .catch(() => active && setRemoteResults([]))
+        .finally(() => active && setRemoteLoading(false));
+    }, 300);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [cleanSearch, searchText]);
   const filteredUniversities = useMemo(() => {
     if (!cleanSearch) {
       return [];
@@ -272,8 +209,15 @@ export default function CompareModal({
     const seen = new Set();
     const uniqueUniversities = [];
 
-    allUniversities.forEach((item) => {
-      const key = getUniversityKey(item);
+    const local = allUniversities.filter((item) => {
+      const name = getUniversityName(item).toLowerCase();
+      const country = getUniversityCountry(item).toLowerCase();
+
+      return name.includes(cleanSearch) || country.includes(cleanSearch);
+    });
+
+    [...local, ...remoteResults].forEach((item) => {
+      const key = sameIdentity(item);
 
       if (!seen.has(key)) {
         seen.add(key);
@@ -281,15 +225,8 @@ export default function CompareModal({
       }
     });
 
-    return uniqueUniversities
-      .filter((item) => {
-        const name = getUniversityName(item).toLowerCase();
-        const country = getUniversityCountry(item).toLowerCase();
-
-        return name.includes(cleanSearch) || country.includes(cleanSearch);
-      })
-      .slice(0, 30);
-  }, [allUniversities, cleanSearch]);
+    return uniqueUniversities.slice(0, 30);
+  }, [allUniversities, cleanSearch, remoteResults]);
 
   const handleAddUniversity = (university) => {
     if (!canAddMore) return;
@@ -454,7 +391,9 @@ export default function CompareModal({
               )}
 
               {cleanSearch ? (
-                filteredUniversities.length > 0 ? (
+                remoteLoading && filteredUniversities.length === 0 ? (
+                  <ActivityIndicator style={{ paddingVertical: 14 }} color={authTheme.colors.brandTeal} />
+                ) : filteredUniversities.length > 0 ? (
                   filteredUniversities.map((item) => {
                     const alreadyAdded = compareList.some((university) =>
                       isSameUniversity(university, item)
@@ -462,7 +401,7 @@ export default function CompareModal({
 
                     return (
                       <TouchableOpacity
-                        key={getUniversityKey(item)}
+                        key={sameIdentity(item)}
                         style={[
                           styles.searchItem,
                           alreadyAdded && styles.searchItemAdded,
@@ -527,6 +466,24 @@ export default function CompareModal({
               <View style={styles.tableSection}>
                 <Text style={styles.sectionTitle}>Side-by-Side Comparison</Text>
 
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.groupTabs}>
+                  {COMPARE_GROUPS.map((item) => {
+                    const active = item.key === group;
+                    return (
+                      <TouchableOpacity
+                        key={item.key}
+                        onPress={() => setGroup(item.key)}
+                        style={[styles.groupTab, active && styles.groupTabActive]}
+                        activeOpacity={0.85}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected: active }}
+                      >
+                        <Text style={[styles.groupTabText, active && styles.groupTabTextActive]}>{item.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.table}>
                     <View style={styles.tableHeaderRow}>
@@ -549,34 +506,51 @@ export default function CompareModal({
                       ))}
                     </View>
 
-                    {compareFields.map((fieldKey, index) => (
+                    {groupRows.length === 0 && (
+                      <View style={[styles.tableRow, styles.tableLastRow]}>
+                        <View style={styles.metricCell}>
+                          <Text style={styles.metricText}>No data in this group</Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {groupRows.map(([label, fields, isLink], index) => (
                       <View
-                        key={fieldKey}
+                        key={label}
                         style={[
                           styles.tableRow,
-                          index === compareFields.length - 1 &&
+                          index === groupRows.length - 1 &&
                             styles.tableLastRow,
                         ]}
                       >
                         <View style={styles.metricCell}>
-                          <Text style={styles.metricText}>
-                            {formatKey(fieldKey)}
-                          </Text>
+                          <Text style={styles.metricText}>{label}</Text>
                         </View>
 
-                        {compareList.map((university) => (
-                          <View
-                            key={`${fieldKey}-${getUniversityKey(university)}`}
-                            style={styles.valueCell}
-                          >
-                            <Text style={styles.valueText} numberOfLines={4}>
-                              {formatValue(
-                                fieldKey,
-                                getValue(university, fieldKey)
+                        {compareList.map((university) => {
+                          const value = groupValue(university, fields);
+                          const url = isLink && value && /^https?:/i.test(String(value)) ? String(value).split(' ; ')[0] : null;
+                          return (
+                            <View
+                              key={`${label}-${sameIdentity(university)}`}
+                              style={styles.valueCell}
+                            >
+                              {url ? (
+                                <Text
+                                  style={[styles.valueText, { color: authTheme.colors.brandTeal, fontWeight: '900' }]}
+                                  onPress={() => Linking.openURL(url).catch(() => {})}
+                                  accessibilityRole="link"
+                                >
+                                  Open link ↗
+                                </Text>
+                              ) : (
+                                <Text style={styles.valueText} numberOfLines={label === 'Programmes Offered' ? 6 : 4}>
+                                  {value === null ? 'N/A' : String(value).replace(/,(?=\S)/g, ', ')}
+                                </Text>
                               )}
-                            </Text>
-                          </View>
-                        ))}
+                            </View>
+                          );
+                        })}
                       </View>
                     ))}
                   </View>
@@ -598,6 +572,36 @@ export default function CompareModal({
 }
 
 const styles = StyleSheet.create({
+  groupTabs: {
+    gap: 6,
+    paddingBottom: 10,
+  },
+
+  groupTab: {
+    minHeight: 36,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#BCEAD8',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+  },
+
+  groupTabActive: {
+    backgroundColor: authTheme.colors.brandTeal,
+    borderColor: authTheme.colors.brandTeal,
+  },
+
+  groupTabText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: authTheme.colors.brandTeal,
+  },
+
+  groupTabTextActive: {
+    color: '#FFFFFF',
+  },
+
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(15,23,42,0.48)',

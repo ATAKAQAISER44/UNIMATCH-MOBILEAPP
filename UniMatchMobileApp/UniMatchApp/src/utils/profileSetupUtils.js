@@ -52,3 +52,18 @@ export function normalizeEducationLevel(level) {
 export function getSupabaseError(results = []) {
   return results.find((result) => result?.error)?.error || null;
 }
+// Intended degree in the values the web app and the backend use ("Bachelor",
+// "Master", "MS leading to PhD", "PhD"). Older mobile profiles saved "BS" /
+// "MS"; those are converted when read, so every endpoint gets the same value
+// (the student plan uses it for the number of years).
+export function normalizeIntendedLevel(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const lower = text.toLowerCase().replace(/[’]/g, "'");
+  const compact = lower.replace(/[^a-z0-9]+/g, '');
+  if (lower.includes('leading') && lower.includes('phd')) return 'MS leading to PhD';
+  if (lower.includes('phd') || lower.includes('doctor')) return 'PhD';
+  if (lower.includes('bachelor') || lower.includes('undergraduate') || ['b', 'ba', 'bs', 'bsc', 'beng'].includes(compact)) return 'Bachelor';
+  if (lower.includes('master') || lower.includes('postgraduate') || ['m', 'ma', 'ms', 'msc', 'mphil', 'mba'].includes(compact)) return 'Master';
+  return text;
+}

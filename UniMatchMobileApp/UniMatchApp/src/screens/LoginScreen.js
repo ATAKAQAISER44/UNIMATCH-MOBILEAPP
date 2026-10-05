@@ -19,6 +19,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 
 import { supabase } from '../services/supabase';
+import { resetUserRole } from '../services/userRole';
 import { AlertBox } from '../components';
 import { loginStyles as styles } from '../styles/loginStyles';
 import { authTheme } from '../styles/authTheme';
@@ -121,6 +122,9 @@ export default function LoginScreen({ navigation }) {
 
       const role = profileData?.role?.trim().toLowerCase();
       const isProfileCompleted = Boolean(profileData?.profile_completed);
+
+      // A new sign-in: menus and role guards read the role again.
+      resetUserRole();
 
       if (!role) {
         navigation.replace('RoleSelection');

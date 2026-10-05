@@ -28,8 +28,10 @@ import {
 import {
   getSupabaseError,
   normalizeEducationLevel,
+  normalizeIntendedLevel,
   sortOptionsAlphabetically,
 } from '../utils/profileSetupUtils';
+import { resetStudentProfile } from '../services/backendData';
 
 import ProfileSetupContent from '../components/profile-setup/ProfileSetupContent';
 
@@ -45,7 +47,7 @@ const createInitialAcademic = () => ({
 
 const mapAcademicData = (data) => ({
   current_education_level: data?.current_education_level || '',
-  intended_education_level: data?.intended_education_level || '',
+  intended_education_level: normalizeIntendedLevel(data?.intended_education_level),
   field_of_study: data?.field_of_study || '',
   score_type: data?.score_type === 'GPA/CGPA' ? 'CGPA' : data?.score_type || '',
   score_value: String(data?.score_value || ''),
@@ -936,6 +938,9 @@ export default function ProfileSetupScreen({ navigation, route }) {
       const saveError = getSupabaseError(saveResults);
 
       if (saveError) throw saveError;
+
+      // Shortlist, plans and smart match read the new profile from now on.
+      resetStudentProfile();
     },
     [
       buildAcademicPayload,

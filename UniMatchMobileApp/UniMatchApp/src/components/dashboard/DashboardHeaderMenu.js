@@ -1,114 +1,18 @@
-
 // src/components/dashboard/DashboardHeaderMenu.js
+//
+// The student screens' menu (Dashboard, Rankings, Smart Match). It now opens
+// the shared role side menu (components/app/AppMenu): Dashboard, Search
+// Universities, Compare Universities, Saved Universities, My Shortlist,
+// Profile and Logout - the same items as the web sidebar.
+// The old onDashboard / onProfile / onLogout props are no longer needed;
+// AppMenu navigates and logs out itself.
 
-import React, { memo, useMemo } from 'react';
-import {
-  View,
-  TouchableOpacity,
-  Modal,
-  Pressable,
-} from 'react-native';
-import { Text } from '../AppText';
+import React, { memo } from 'react';
 
-import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AppMenu from '../app/AppMenu';
 
-import { dashboardStyles as styles } from '../../styles/dashboardStyles';
-import { authTheme } from '../../styles/authTheme';
-
-const DashboardHeaderMenu = memo(function DashboardHeaderMenu({
-  visible,
-  onClose,
-  onDashboard,
-  onProfile,
-  onLogout,
-}) {
-  // Drop the menu just below the top bar, which itself sits under the notch.
-  const insets = useSafeAreaInsets();
-
-  const handleDashboardPress = () => {
-    onClose?.();
-    onDashboard?.();
-  };
-
-  const handleProfilePress = () => {
-    onClose?.();
-    onProfile?.();
-  };
-
-  const handleLogoutPress = () => {
-    onClose?.();
-    onLogout?.();
-  };
-
-  const menuItems = useMemo(
-    () => [
-      {
-        label: 'Dashboard',
-        icon: 'home-outline',
-        color: authTheme.colors.brandTeal,
-        iconBoxStyle: null,
-        textStyle: styles.menuText,
-        itemStyle: null,
-        onPress: handleDashboardPress,
-      },
-      {
-        label: 'Profile',
-        icon: 'person-circle-outline',
-        color: authTheme.colors.brandGreen || authTheme.colors.brandTeal,
-        iconBoxStyle: styles.profileMenuIconBox,
-        textStyle: styles.menuText,
-        itemStyle: null,
-        onPress: handleProfilePress,
-      },
-      {
-        label: 'Logout',
-        icon: 'log-out-outline',
-        color: '#DC2626',
-        iconBoxStyle: styles.logoutIconBox,
-        textStyle: styles.logoutText,
-        itemStyle: styles.logoutItem,
-        onPress: handleLogoutPress,
-      },
-    ],
-    [onDashboard, onProfile, onLogout, onClose]
-  );
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <Pressable style={[styles.menuOverlay, { paddingTop: insets.top + 56 }]} onPress={onClose}>
-        <Pressable
-          style={styles.menuCard}
-          onPress={(event) => event.stopPropagation()}
-        >
-          {menuItems.map((item, index) => (
-            <React.Fragment key={item.label}>
-              {index === menuItems.length - 1 && (
-                <View style={styles.menuDivider} />
-              )}
-
-              <TouchableOpacity
-                style={[styles.menuItem, item.itemStyle]}
-                activeOpacity={0.85}
-                onPress={item.onPress}
-              >
-                <View style={[styles.menuIconBox, item.iconBoxStyle]}>
-                  <Ionicons name={item.icon} size={17} color={item.color} />
-                </View>
-
-                <Text style={item.textStyle}>{item.label}</Text>
-              </TouchableOpacity>
-            </React.Fragment>
-          ))}
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
+const DashboardHeaderMenu = memo(function DashboardHeaderMenu({ visible, onClose, activeKey = 'dashboard' }) {
+  return <AppMenu visible={visible} onClose={onClose} activeKey={activeKey} />;
 });
 
 export default DashboardHeaderMenu;
