@@ -156,6 +156,25 @@ def country_common_tests(values, min_count=3, min_share=0.5):
     return ", ".join(common)
 
 
+def median_value(values, kind):
+    """Median of filled values, in the column's own format.
+    kind: "money" ("$a – $b"), "percent" ("a% – b%") or "cgpa" ("3.0")."""
+    lows, highs = [], []
+    for value in values:
+        numbers = [float(n.replace(",", "")) for n in re.findall(r"\d[\d,]*(?:\.\d+)?", value)]
+        if numbers:
+            lows.append(min(numbers))
+            highs.append(max(numbers))
+    if not lows:
+        return ""
+    low, high = statistics.median(lows), statistics.median(highs)
+    if kind == "money":
+        return _money(low, high)
+    if kind == "percent":
+        return normalize_percent(f"{round(low)}% - {round(high)}%")
+    return normalize_cgpa(f"{low:.2f}")
+
+
 # ---------- CGPA ----------
 
 def normalize_cgpa(raw):

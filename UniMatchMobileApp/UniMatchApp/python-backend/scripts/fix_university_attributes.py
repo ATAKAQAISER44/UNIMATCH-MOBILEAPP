@@ -490,6 +490,39 @@ def main():
                             "Before": "", "After": value, "Note": f"country estimate (typical value for {df.at[i, 'Country']})"})
             log[f"{col} filled with country estimate"] += 1
 
+    # 6. University-level numbers no source gives: median of similar universities
+    #    (same country and type, then same country, then same region and type).
+    #    Only real values are used for the median, never earlier estimates.
+    estimated = {(c["Institution_Name"], c["Column"]) for c in changes if c["Note"].startswith("country estimate")}
+    median_rules = {
+        "Tuition Fee (local)": "money", "Tuition Fee (international)": "money",
+        "Acceptance Rate": "percent", "Graduate Employability Rate": "percent", "Minimum CGPA Requirement": "cgpa",
+    }
+    for col, kind in median_rules.items():
+        real = df[(df[col] != "") & ~df.Institution_Name.map(lambda n: (n, col) in estimated)]
+        levels = [
+            (["Country", "Public / Private"], 3, lambda r: f"{r['Country']} {r['Public / Private'].lower()} universities"),
+            (["Country"], 3, lambda r: f"{r['Country']} universities"),
+            (["Region", "Public / Private"], 5, lambda r: f"{r['Public / Private'].lower()} universities in {r['Region']}"),
+        ]
+        tables = []
+        for keys, minimum, label in levels:
+            groups = real[real[keys].ne("").all(axis=1)].groupby(keys)[col]
+            tables.append((keys, {k if isinstance(k, tuple) else (k,): (fmt.median_value(list(v), kind), len(v))
+                                  for k, v in groups if len(v) >= minimum}, label))
+        for i in df.index:
+            if df.at[i, col]:
+                continue
+            for keys, table, label in tables:
+                key = tuple(df.at[i, k] for k in keys)
+                if key in table and table[key][0]:
+                    value, n = table[key]
+                    df.at[i, col] = value
+                    changes.append({"Institution_Name": df.at[i, "Institution_Name"], "Column": col, "Before": "", "After": value,
+                                    "Note": f"country estimate (median of {n} {label(df.loc[i])})"})
+                    log[f"{col} filled with median estimate"] += 1
+                    break
+
     pd.DataFrame(changes, columns=["Institution_Name", "Column", "Before", "After", "Note"]).to_csv(
         FORMAT_REVIEW, index=False, encoding="utf-8-sig")
 

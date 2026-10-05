@@ -4,7 +4,7 @@ import re
 import pandas as pd
 from fastapi import HTTPException
 
-from app.config.ranking_config import DATASET_METRICS
+from app.config.ranking_config import COLUMN_MAP, DATASET_METRICS
 from app.matching.university_matcher import apply_display_names
 from app.preprocessing.arwu_preprocessor import ARWUPreprocessor
 from app.preprocessing.the_preprocessor import THEPreprocessor
@@ -18,12 +18,15 @@ from app.preprocessing.utils import (
 from app.services.ranking_service import (
     apply_country_and_search,
     clean_rank_value,
+    find_column,
     paginate_df,
     prepare_dataset,
 )
 
 RESEARCHER_DATA_DIR = Path("data/researcher")
 
+# Editions already used by the original Student/current ranking pipeline.
+# They stay available even when that year is not duplicated inside data/researcher.
 CURRENT_YEARS = {
     "the": 2024,
     "arwu": 2025,
@@ -34,9 +37,8 @@ PREPROCESSORS = {
     "arwu": (ARWUPreprocessor, "data/raw/arwu.csv"),
 }
 
-# The published composite/overall score column for each dataset, shown
-# alongside the per-indicator breakdown but never offered as a weight-able
-# indicator itself.
+# Published composite score is display-only; it is never offered as a
+# researcher weight because the component indicators already form that score.
 OVERALL_SCORE_COLUMN = {
     "qs": "Overall_Score",
     "the": "scores_overall",
@@ -46,16 +48,21 @@ OVERALL_SCORE_COLUMN = {
 
 def available_years(dataset: str) -> list[int]:
     dataset = dataset.lower()
+    if dataset not in DATASET_METRICS:
+        raise HTTPException(status_code=400, detail="Invalid dataset")
 
-    if dataset == "qs":
-        years = sorted(_historical_files("qs").keys(), reverse=True)
-        if years:
-            return years
+    years = set(_historical_files(dataset).keys())
+    current_year = CURRENT_YEARS.get(dataset)
+    if current_year:
+        years.add(current_year)
 
-    if dataset in CURRENT_YEARS:
-        return [CURRENT_YEARS[dataset]]
+    if not years:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No researcher datasets are available for {dataset.upper()}",
+        )
 
-    raise HTTPException(status_code=400, detail="Invalid dataset")
+    return sorted(years, reverse=True)
 
 
 def load_researcher_dataset(dataset: str, year: int | None):
@@ -69,10 +76,18 @@ def load_researcher_dataset(dataset: str, year: int | None):
             detail=f"{dataset.upper()} {selected_year} dataset is not available",
         )
 
-    if dataset == "qs":
-        return _load_historical_qs(selected_year), selected_year, years
+    # A year-specific researcher file always wins. This keeps adding another
+    # edition as simple as dropping e.g. the_2028.csv into its dataset folder.
+    if selected_year in _historical_files(dataset):
+        return _load_historical_dataset(dataset, selected_year), selected_year, years
 
-    return _load_current_dataset(dataset), selected_year, years
+    if CURRENT_YEARS.get(dataset) == selected_year:
+        return _load_current_dataset(dataset), selected_year, years
+
+    raise HTTPException(
+        status_code=404,
+        detail=f"{dataset.upper()} {selected_year} researcher dataset not found",
+    )
 
 
 def build_dataset_response(
@@ -147,19 +162,31 @@ def _historical_files(dataset: str) -> dict[int, Path]:
     return files
 
 
-def _load_historical_qs(year: int):
-    path = _historical_files("qs").get(year)
+def _read_csv(path: Path) -> pd.DataFrame:
+    try:
+        return pd.read_csv(path, encoding="utf-8")
+    except UnicodeDecodeError:
+        return pd.read_csv(path, encoding="latin1")
 
+
+def _load_historical_dataset(dataset: str, year: int):
+    path = _historical_files(dataset).get(year)
     if path is None:
         raise HTTPException(
             status_code=404,
-            detail=f"QS {year} researcher dataset not found",
+            detail=f"{dataset.upper()} {year} researcher dataset not found",
         )
 
-    df = pd.read_csv(path)
-    name_col = "Institution_Name"
-    country_col = "Country"
-    rank_col = "Rank"
+    df = clean_text_columns(standardize_column_names(_read_csv(path))).drop_duplicates()
+    name_col = find_column(df, COLUMN_MAP[dataset]["name"])
+    country_col = find_column(df, COLUMN_MAP[dataset]["country"])
+    rank_col = find_column(df, COLUMN_MAP[dataset]["rank"])
+
+    if not name_col or not rank_col:
+        raise HTTPException(
+            status_code=500,
+            detail=f"{dataset.upper()} {year} is missing its university name or rank column",
+        )
 
     df["_rank_numeric"] = df[rank_col].apply(clean_rank_value)
     df = df.dropna(subset=["_rank_numeric"]).copy()
@@ -168,7 +195,7 @@ def _load_historical_qs(year: int):
 
     df["university_id"] = df.apply(
         lambda row: create_university_id(
-            dataset_name=f"qs_{year}",
+            dataset_name=f"{dataset}_{year}",
             row=row,
             name_col=name_col,
             country_col=country_col,
@@ -177,17 +204,22 @@ def _load_historical_qs(year: int):
     )
     df = apply_display_names(df, name_col, country_col)
 
-    metrics = _historical_metrics(df)
+    # Keep each ranking's methodology separate. Only indicators defined for
+    # that ranking and actually present in this edition are exposed.
+    metrics = [metric for metric in DATASET_METRICS[dataset] if metric in df.columns]
+    if not metrics:
+        raise HTTPException(
+            status_code=500,
+            detail=f"No supported {dataset.upper()} indicators found in {year}",
+        )
+
     normalized = {}
     for metric in metrics:
-        if metric not in df.columns:
-            continue
-
         original = convert_numeric_series(df[metric])
         original = original.where(original.between(0, 100))
         df[metric] = original
-        valid = original.dropna()
 
+        valid = original.dropna()
         if valid.empty:
             normalized[metric] = pd.Series(index=df.index, dtype="float64")
             continue
@@ -195,8 +227,10 @@ def _load_historical_qs(year: int):
         normalized_series = min_max_normalize(original)
         normalized[metric] = normalized_series.where(original.notna())
 
-    overall_col = OVERALL_SCORE_COLUMN.get("qs")
+    overall_col = OVERALL_SCORE_COLUMN.get(dataset)
     if overall_col and overall_col in df.columns:
+        # THE publishes score bands for many tied ranks. Those bands are not
+        # invented into a single number; they remain unavailable numerically.
         df[overall_col] = convert_numeric_series(df[overall_col])
     else:
         overall_col = None
@@ -234,14 +268,6 @@ def _load_current_dataset(dataset: str):
         "overall_col": overall_col,
         "historical": False,
     }
-
-
-def _historical_metrics(df: pd.DataFrame) -> list[str]:
-    return [
-        column
-        for column in df.columns
-        if column.endswith("_Score") and column != "Overall_Score"
-    ]
 
 
 def raw_metric_values(dataset: str, columns: list[str]) -> pd.DataFrame:
@@ -355,9 +381,7 @@ def _number(value):
 
 
 def _safe_raw(value):
-    """Pass a value through unchanged, but turn NaN into None — plain
-    values (unlike _number) aren't coerced to float, since fields like
-    previous_rank are display labels, not numbers to compute with."""
+    """Pass a value through unchanged, but turn NaN into None."""
     try:
         if pd.isna(value):
             return None
