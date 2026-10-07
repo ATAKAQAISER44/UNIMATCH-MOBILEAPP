@@ -19,7 +19,9 @@ import {
   ErrorBox,
   GradientButton,
   LoadingBlock,
+  CollapsibleCard,
   MethodologyPanel,
+  usePersistentToggle,
   PageHeader,
   Pagination,
   RankPill,
@@ -111,6 +113,7 @@ const UniversityRow = React.memo(function UniversityRow({ row, metrics, datasetK
 });
 
 export default function ResearcherDatasetScreen({ navigation, route }) {
+  const [methodologyOpen, toggleMethodology] = usePersistentToggle('researcher-dataset-methodology-open', false);
   const params = route.params || {};
   const datasetKey = resolveDatasetKey(params.dataset);
   const datasetInfo = RESEARCHER_DATASETS[datasetKey];
@@ -295,6 +298,16 @@ export default function ResearcherDatasetScreen({ navigation, route }) {
         onYearChange={changeYear}
       />
 
+      {/* Methodology near the top, folded by default (remembered). */}
+      <CollapsibleCard
+        eyebrow="Methodology"
+        title={`How ${RESEARCHER_METHODOLOGY[datasetKey].title} is calculated`}
+        open={methodologyOpen}
+        onToggle={toggleMethodology}
+      >
+        <MethodologyPanel datasetKey={datasetKey} showDescription={false} />
+      </CollapsibleCard>
+
       <StatGrid
         items={[
           { label: 'Universities', value: summary?.total_universities ?? '-' },
@@ -377,10 +390,6 @@ export default function ResearcherDatasetScreen({ navigation, route }) {
         <Text style={styles.noteText}>Tap a card for its indicators. Normalized = rescaled 0–1 within this edition.</Text>
       </Card>
 
-      <Card>
-        <SectionHeading title={`How ${RESEARCHER_METHODOLOGY[datasetKey].title} is calculated`} />
-        <MethodologyPanel datasetKey={datasetKey} showDescription={false} />
-      </Card>
     </ResearcherLayout>
   );
 }
