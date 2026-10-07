@@ -248,6 +248,9 @@ const UniversityCard = memo(function UniversityCard({
             country={country}
             dataset={dataset}
             rank={officialRank !== 'N/A' ? officialRank : undefined}
+            currentRank={rank}
+            score={score !== null && score !== undefined ? formatScore(score) : undefined}
+            scoreLabel="Match score"
             style={styles.uniName}
             numberOfLines={2}
           />
@@ -310,7 +313,7 @@ const UniversityCard = memo(function UniversityCard({
       ) : null}
 
       <View style={styles.actionRow}>
-        <CardAction label="Details" icon="›" onPress={() => onOpen(university)} />
+        <CardAction label="Details" icon="›" onPress={() => onOpen(university, rank, score)} />
         <CardAction label={compared ? 'Compared' : 'Compare'} icon={compared ? '✓' : '+'} active={compared} onPress={() => onToggleCompare(university)} />
         <CardAction label={saved ? 'Saved' : 'Save'} icon={saved ? '★' : '☆'} active={saved} onPress={() => onToggleSave(university)} />
       </View>
@@ -333,12 +336,15 @@ export default function PaginatedResults({
   const { isCompared, toggle: toggleCompared } = useCompareList();
   const openUniversity = useOpenUniversity();
   const openCard = useCallback(
-    (university) =>
+    (university, currentRank, score) =>
       openUniversity({
         name: getUniversityName(university),
         country: getCountry(university),
         dataset,
         rank: getOfficialRank(university),
+        currentRank,
+        score: score !== null && score !== undefined ? formatScore(score) : undefined,
+        scoreLabel: 'Match score',
       }),
     [dataset, openUniversity]
   );

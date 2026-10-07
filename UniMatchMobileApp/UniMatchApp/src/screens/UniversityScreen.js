@@ -26,7 +26,7 @@ import { Card, ErrorBox, InlineLoader, LoadingBlock, SectionHeading } from '../c
 import { researcherStyles as styles } from '../styles/researcherStyles';
 import { authTheme } from '../styles/authTheme';
 import { fetchUniversityAttributes, fetchUniversityJourney } from '../services/researcherApi';
-import { findUniversityInRankings, RANKING_KEYS } from '../services/universitySearch';
+import { findUniversityInRankings, identityKey, RANKING_KEYS, searchAllRankings } from '../services/universitySearch';
 import { useStudentPlan } from '../services/backendData';
 import { useSavedUniversities } from '../services/savedUniversities';
 import { useCompareList } from '../services/compareList';
@@ -221,6 +221,33 @@ export function introText(name, info) {
 // Session caches (see the loading effect below).
 const pageCache = new Map();
 const journeyCache = new Map();
+const comparePoolCache = new Map();
+
+// City column of an export row, when the dataset has one (web UNIVERSITY_FIELDS.city).
+const CITY_COLUMNS = ['City', 'city', 'CITY', 'university_city', 'University City'];
+
+// "Selected result" values passed in by the list that opened the page.
+function SelectedResult({ officialRank, currentRank, score, scoreLabel }) {
+  const items = [
+    ['Official rank', hasValue(officialRank) ? `#${String(officialRank).replace(/^#/, '')}` : null],
+    ['Current rank', hasValue(currentRank) ? `#${String(currentRank).replace(/^#/, '')}` : null],
+    [scoreLabel || 'Score', hasValue(score) ? String(score) : null],
+  ].filter(([, value]) => value);
+
+  return (
+    <Card>
+      <SectionHeading title="Selected result" subtitle="Values from the list you opened this from." />
+      <View style={[styles.kvGrid, { marginTop: 0 }]}>
+        {items.map(([label, value]) => (
+          <View key={label} style={styles.kvItem}>
+            <Text style={styles.kvLabel}>{label}</Text>
+            <Text style={styles.kvValue}>{value}</Text>
+          </View>
+        ))}
+      </View>
+    </Card>
+  );
+}
 
 export default function UniversityScreen({ navigation, route }) {
   const params = route?.params || {};
@@ -236,6 +263,7 @@ export default function UniversityScreen({ navigation, route }) {
   const [reloadKey, setReloadKey] = useState(0);
   const [section, setSection] = useState('overview');
   const [compareOpen, setCompareOpen] = useState(false);
+  const [searchPool, setSearchPool] = useState(() => comparePoolCache.get(name) || []);
 
   const saved = useSavedUniversities();
   const compare = useCompareList();
@@ -306,6 +334,22 @@ export default function UniversityScreen({ navigation, route }) {
     };
   }, [name, params.country, pageKey, reloadKey]);
 
+  // Compare popup pool: QS / THE / ARWU results for this name (web
+  // UniversityIntroPage searchPool). Loaded once the popup is first opened.
+  useEffect(() => {
+    if (!compareOpen || comparePoolCache.has(name)) return undefined;
+    let active = true;
+    searchAllRankings(name)
+      .then((results) => {
+        comparePoolCache.set(name, results);
+        if (active) setSearchPool(results);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [compareOpen, name]);
+
   // The row of the ranking the user came from (or the first one found).
   const primaryKey = rows[params.dataset] ? params.dataset : RANKING_KEYS.find((key) => rows[key]);
   const primary = primaryKey ? rows[primaryKey] : null;
@@ -355,6 +399,23 @@ export default function UniversityScreen({ navigation, route }) {
   const planList = useMemo(() => (isStudent ? [{ name: university.name, country }] : []), [isStudent, university.name, country]);
   const plan = useStudentPlan(planList);
   const myPlan = plan.data?.universities?.[0];
+
+  // This university (each ranking's row), the name search results and the
+  // saved list, one entry per university.
+  const comparePool = useMemo(() => {
+    const seen = new Set();
+    return [university, ...RANKING_KEYS.map((key) => rows[key]).filter(Boolean), ...searchPool, ...saved.items].filter(
+      (item) => {
+        const key = identityKey(item?.name || item?.raw?.Institution_Name, item?.country || item?.raw?.Country);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }
+    );
+  }, [university, rows, searchPool, saved.items]);
+
+  const city = CITY_COLUMNS.map((column) => field(column)).find(hasValue) || null;
+  const hasSelectedResult = hasValue(params.currentRank) || hasValue(params.score);
 
   const isSaved = saved.isSaved(university);
   const isCompared = compare.isCompared(university);
@@ -435,7 +496,7 @@ export default function UniversityScreen({ navigation, route }) {
             <CompareModal
               visible={compareOpen}
               compareList={compare.items}
-              allUniversities={[university, ...saved.items]}
+              allUniversities={comparePool}
               onClose={() => setCompareOpen(false)}
               onAddUniversity={compare.add}
               onRemove={compare.remove}
@@ -453,6 +514,7 @@ export default function UniversityScreen({ navigation, route }) {
         <Text style={styles.heroTitle}>{displayName}</Text>
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+          {hasValue(city) && <Pill label={`🏙️ ${city}`} />}
           {hasValue(country) && <Pill label={`📍 ${country}`} />}
           {hasValue(info.region) && <Pill label={info.region} />}
           {hasValue(info.type) && <Pill label={info.type} />}
@@ -511,6 +573,15 @@ export default function UniversityScreen({ navigation, route }) {
               <SectionHeading title={`About ${displayName}`} />
               <Text style={styles.bodyText}>{introText(displayName, info)}</Text>
             </Card>
+          )}
+
+          {hasSelectedResult && (
+            <SelectedResult
+              officialRank={primary?.official_rank || params.rank}
+              currentRank={params.currentRank}
+              score={params.score}
+              scoreLabel={params.scoreLabel}
+            />
           )}
 
           {isStudent && (

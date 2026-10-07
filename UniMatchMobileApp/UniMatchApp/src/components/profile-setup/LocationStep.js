@@ -18,6 +18,7 @@ import { sortOptionsAlphabetically } from '../../utils/profileSetupUtils';
 export default function LocationStep({
   geo,
   countriesForRegion,
+  regionOptions,
   openPicker,
   clearPreferredCountry,
   toggleCountry,
@@ -32,7 +33,7 @@ export default function LocationStep({
         label="Preferred Region"
         value={geo.preferred_region}
         placeholder="Select region"
-        onPress={() => openPicker('Preferred Region', REGIONS, 'geo.region')}
+        onPress={() => openPicker('Preferred Region', regionOptions?.length ? regionOptions : REGIONS, 'geo.region')}
       />
 
       <View style={styles.countryHeaderRow}>

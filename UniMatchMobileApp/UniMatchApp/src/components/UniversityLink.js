@@ -12,8 +12,10 @@ import { authTheme } from '../styles/authTheme';
 
 export const UNIVERSITY_ROUTE = 'University';
 
-// Only small, serialisable values go into route params.
-export function universityParams({ name, country, dataset, rank, score } = {}) {
+// Only small, serialisable values go into route params. currentRank / score
+// (with scoreLabel) come from a results list (My Ranking, Smart Match) and
+// show as "Selected result" on the university page.
+export function universityParams({ name, country, dataset, rank, currentRank, score, scoreLabel } = {}) {
   const clean = (value) =>
     value === null || value === undefined || value === '' ? undefined : String(value);
 
@@ -22,7 +24,9 @@ export function universityParams({ name, country, dataset, rank, score } = {}) {
     country: clean(country),
     dataset: clean(dataset),
     rank: clean(rank),
+    currentRank: clean(currentRank),
     score: clean(score),
+    scoreLabel: clean(scoreLabel),
   };
 }
 
@@ -43,7 +47,9 @@ export default function UniversityLink({
   country,
   dataset,
   rank,
+  currentRank,
   score,
+  scoreLabel,
   style,
   numberOfLines,
   onBeforeOpen,
@@ -52,7 +58,7 @@ export default function UniversityLink({
 
   const handlePress = () => {
     onBeforeOpen?.();
-    openUniversity({ name, country, dataset, rank, score });
+    openUniversity({ name, country, dataset, rank, currentRank, score, scoreLabel });
   };
 
   return (

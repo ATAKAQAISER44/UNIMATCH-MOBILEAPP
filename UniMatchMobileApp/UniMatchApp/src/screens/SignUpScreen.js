@@ -488,6 +488,8 @@ export default function SignUpScreen({ navigation }) {
             full_name: cleanFullName,
             date_of_birth: databaseDateOfBirth,
             country: form.country,
+            // Same key as the web sign-up, plus the app's earlier keys.
+            preferred_language: form.language,
             preferred_language_for_study: form.language,
             language: form.language,
           },

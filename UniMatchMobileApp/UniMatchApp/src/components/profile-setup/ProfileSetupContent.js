@@ -51,6 +51,7 @@ export default function ProfileSetupContent({
 
   geo,
   countriesForRegion,
+  regionOptions,
 
   financial,
   setFinancial,
@@ -149,6 +150,7 @@ export default function ProfileSetupContent({
                     <LocationStep
                       geo={geo}
                       countriesForRegion={countriesForRegion}
+                      regionOptions={regionOptions}
                       openPicker={openPicker}
                       clearPreferredCountry={clearPreferredCountry}
                       toggleCountry={toggleCountry}

@@ -36,6 +36,7 @@ import RankingStats from '../components/rankings/RankingStats';
 import RankingFilterCard from '../components/rankings/RankingFilterCard';
 import RankingTableHeader from '../components/rankings/RankingTableHeader';
 import UniversityTableRow from '../components/rankings/UniversityTableRow';
+import SavedUniversityCard from '../components/rankings/SavedUniversityCard';
 import OptionModal from '../components/rankings/OptionModal';
 import PaginationControls from '../components/rankings/PaginationControls';
 import { useOpenUniversity } from '../components/UniversityLink';
@@ -56,6 +57,7 @@ import {
   ALL_COUNTRIES,
   DATASET_CONFIG,
   DATASET_INFO,
+  PERSONALIZED_RANK_KEYS,
   ROW_OPTIONS,
 } from '../constants/rankingsConstants';
 
@@ -63,8 +65,9 @@ import {
   dedupeUniversities,
   escapeCsv,
   getCountry,
+  getFirstAvailable,
   getOfficialRank,
-  getPersonalizedRank,
+  getPersonalizedScore,
   getUniName,
   getUniversityKey,
   normalizeResults,
@@ -88,6 +91,9 @@ import {
   formatScore,
 } from '../utils/myRankingUtils';
 
+// Saved universities are shown as cards, a few per page.
+const SAVED_PAGE_SIZE = 10;
+
 export default function RankingsScreen({ route = {}, navigation }) {
   const insets = useSafeAreaInsets();
   const { dataset = 'qs', searchText, openTab, searchNonce } = route?.params || {};
@@ -105,7 +111,7 @@ export default function RankingsScreen({ route = {}, navigation }) {
   const [myResults, setMyResults] = useState([]);
   const savedStore = useSavedUniversities();
   const savedList = savedStore.items;
-  const { reload: reloadSaved, toggle: toggleSaved } = savedStore;
+  const { reload: reloadSaved, toggle: toggleSaved, remove: removeSaved } = savedStore;
   // Shared with Saved / Compare Universities and Smart Match.
   const compare = useCompareList();
   const compareList = compare.items;
@@ -174,11 +180,19 @@ export default function RankingsScreen({ route = {}, navigation }) {
   const [recomputeToken, setRecomputeToken] = useState(0);
   const rankingRequestIdRef = useRef(0);
 
+  const savedTotalPages = Math.max(1, Math.ceil(savedList.length / SAVED_PAGE_SIZE));
+  // Page of the saved list (kept in range when items are deleted).
+  const savedPage = Math.min(page, savedTotalPages);
+  const savedPageItems = useMemo(
+    () => savedList.slice((savedPage - 1) * SAVED_PAGE_SIZE, savedPage * SAVED_PAGE_SIZE),
+    [savedList, savedPage]
+  );
+
   const currentResults = useMemo(() => {
     if (activeTab === 'official') return officialResults;
     if (activeTab === 'my') return myResults;
-    return savedList;
-  }, [activeTab, officialResults, myResults, savedList]);
+    return savedPageItems;
+  }, [activeTab, officialResults, myResults, savedPageItems]);
 
   const allUniversities = useMemo(
     () =>
@@ -248,10 +262,7 @@ export default function RankingsScreen({ route = {}, navigation }) {
   const visibleTotalResults =
     activeTab === 'saved' ? savedList.length : totalResults;
 
-  const visibleTotalPages =
-    activeTab === 'saved'
-      ? Math.max(1, Math.ceil(savedList.length / rowsPerPage))
-      : totalPages;
+  const visibleTotalPages = activeTab === 'saved' ? savedTotalPages : totalPages;
 
   const rankingImportanceNumber = Number.isFinite(Number(rankingImportance))
     ? Number(rankingImportance)
@@ -518,11 +529,17 @@ export default function RankingsScreen({ route = {}, navigation }) {
   const openUniversity = useOpenUniversity();
   const handleOpenUniversity = useCallback(
     (item) => {
+      const fromMyRanking = activeTab === 'my';
+      const officialRank = getOfficialRank(item);
       openUniversity({
         name: getUniName(item),
         country: getCountry(item),
-        dataset: datasetKey,
-        rank: activeTab === 'my' ? getPersonalizedRank(item, 0) : getOfficialRank(item),
+        dataset: item?.source_dataset || item?.dataset || datasetKey,
+        rank: officialRank !== '—' ? officialRank : undefined,
+        // My Ranking results show as "Selected result" on the page.
+        currentRank: fromMyRanking ? getFirstAvailable(item, PERSONALIZED_RANK_KEYS, '') : undefined,
+        score: fromMyRanking && getPersonalizedScore(item) !== '—' ? formatScore(getPersonalizedScore(item)) : undefined,
+        scoreLabel: fromMyRanking ? 'Personalized score' : undefined,
       });
     },
     [activeTab, datasetKey, openUniversity]
@@ -1208,8 +1225,25 @@ export default function RankingsScreen({ route = {}, navigation }) {
     [closeRowsModal]
   );
 
+  const handleRemoveSaved = useCallback(
+    (university) => {
+      removeSaved(university);
+    },
+    [removeSaved]
+  );
+
+  const handleSavedPageChange = useCallback((target) => setPage(target), []);
+
   const renderUniversityRow = useCallback(
-    ({ item, index }) => (
+    ({ item, index }) => activeTab === 'saved' ? (
+      <SavedUniversityCard
+        item={item}
+        compared={isCompared(item)}
+        onDetails={handleOpenUniversity}
+        onCompare={handleToggleCompare}
+        onRemove={handleRemoveSaved}
+      />
+    ) : (
       <UniversityTableRow
         item={item}
         index={index}
@@ -1223,7 +1257,15 @@ export default function RankingsScreen({ route = {}, navigation }) {
         onSave={handleToggleSave}
       />
     ),
-    [activeTab, handleToggleCompare, handleToggleSave, isCompared, isSaved]
+    [
+      activeTab,
+      handleOpenUniversity,
+      handleRemoveSaved,
+      handleToggleCompare,
+      handleToggleSave,
+      isCompared,
+      isSaved,
+    ]
   );
 
   const rowOptionLabels = useMemo(() => ROW_OPTIONS.map(String), []);
@@ -1371,17 +1413,19 @@ export default function RankingsScreen({ route = {}, navigation }) {
 
               <RankingTableHeader
                 title={tableTitle}
-                page={page}
+                page={activeTab === 'saved' ? savedPage : page}
                 totalPages={visibleTotalPages}
                 totalResults={visibleTotalResults}
               />
 
-              <View style={styles.tableBox}>
-                <View style={styles.tableHead}>
-                  <Text style={styles.tableHeadRank}>Rank</Text>
-                  <Text style={styles.tableHeadUniversity}>University</Text>
+              {activeTab !== 'saved' ? (
+                <View style={styles.tableBox}>
+                  <View style={styles.tableHead}>
+                    <Text style={styles.tableHeadRank}>Rank</Text>
+                    <Text style={styles.tableHeadUniversity}>University</Text>
+                  </View>
                 </View>
-              </View>
+              ) : null}
 
               {tabLoading ? (
                 <View style={styles.loadingBox}>
@@ -1414,13 +1458,19 @@ export default function RankingsScreen({ route = {}, navigation }) {
             ) : null
           }
           ListFooterComponent={
-            currentResults.length > 0 && activeTab !== 'saved' && !tabLoading ? (
+            currentResults.length === 0 || tabLoading ? null : activeTab === 'saved' ? (
+              <PaginationControls
+                page={savedPage}
+                totalPages={savedTotalPages}
+                onPageChange={handleSavedPageChange}
+              />
+            ) : (
               <PaginationControls
                 page={page}
                 totalPages={totalPages}
                 onPageChange={(target) => fetchTabData(activeTab, target)}
               />
-            ) : null
+            )
           }
         />
       )}

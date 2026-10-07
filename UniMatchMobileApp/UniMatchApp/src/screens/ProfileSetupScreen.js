@@ -34,6 +34,7 @@ import {
 } from '../utils/profileSetupUtils';
 import { friendlyAuthError } from '../utils/authValidation';
 import { resetStudentProfile } from '../services/backendData';
+import useProfileOptions from '../components/smart-match/useProfileOptions';
 
 import ProfileSetupContent from '../components/profile-setup/ProfileSetupContent';
 
@@ -206,10 +207,33 @@ export default function ProfileSetupScreen({ navigation, route }) {
 
   const progressPercent = useMemo(() => step * 25, [step]);
 
+  // Regions and their countries from the dataset (GET /profile-setup/ranges,
+  // like the web), merged with the app's own list so older saved choices
+  // (e.g. "North America") still load and validate.
+  const profileOptions = useProfileOptions();
+  const regionCountries = useMemo(() => {
+    const merged = {};
+    const add = (region, countries = []) => {
+      if (!region || region === 'Not Classified') return;
+      merged[region] = Array.from(new Set([...(merged[region] || []), ...countries]));
+    };
+    Object.entries(profileOptions.regionCountries || {}).forEach(([region, list]) => add(region, list));
+    Object.entries(REGION_COUNTRIES).forEach(([region, list]) => {
+      if (merged[region] || region === geo.preferred_region) add(region, list);
+    });
+    return merged;
+  }, [profileOptions.regionCountries, geo.preferred_region]);
+
+  const regionOptions = useMemo(() => {
+    const list = Object.keys(regionCountries).sort();
+    if (geo.preferred_region && !list.includes(geo.preferred_region)) list.push(geo.preferred_region);
+    return list;
+  }, [regionCountries, geo.preferred_region]);
+
   const countriesForRegion = useMemo(() => {
     if (!geo.preferred_region) return [];
-    return REGION_COUNTRIES[geo.preferred_region] || [];
-  }, [geo.preferred_region]);
+    return regionCountries[geo.preferred_region] || [];
+  }, [geo.preferred_region, regionCountries]);
 
   const pickerSelected = useMemo(() => {
     const { key } = picker;
@@ -746,7 +770,7 @@ export default function ProfileSetupScreen({ navigation, route }) {
     }
 
     const selectedCountries = parseCountryList(geo.preferred_country);
-    const validCountries = REGION_COUNTRIES[geo.preferred_region] || [];
+    const validCountries = regionCountries[geo.preferred_region] || [];
     const wrongCountries = selectedCountries.filter(
       (country) => !validCountries.includes(country)
     );
@@ -760,7 +784,7 @@ export default function ProfileSetupScreen({ navigation, route }) {
     }
 
     return '';
-  }, [geo.preferred_country, geo.preferred_region]);
+  }, [geo.preferred_country, geo.preferred_region, regionCountries]);
 
   const validateFinancialStep = useCallback(() => {
     if (
@@ -1107,6 +1131,7 @@ export default function ProfileSetupScreen({ navigation, route }) {
       setTestScore={setTestScore}
       geo={geo}
       countriesForRegion={countriesForRegion}
+      regionOptions={regionOptions}
       financial={financial}
       setFinancial={setFinancial}
       priorities={priorities}
