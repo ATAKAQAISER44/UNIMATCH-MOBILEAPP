@@ -6,13 +6,14 @@
 // Student screens all use it.
 
 import React, { useCallback, useState } from 'react';
-import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ResearcherTopBar } from '../researcher/ResearcherUI';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { authTheme } from '../../styles/authTheme';
 import { bottomPadding } from '../../utils/safeArea';
+import useKeyboardAwareScroll from '../../utils/useKeyboardAwareScroll';
 import { useUserRole } from '../../services/userRole';
 import AppMenu from './AppMenu';
 import { ROLE_LABELS } from './menuConfig';
@@ -34,6 +35,9 @@ export default function AppLayout({
   const { key: role } = useUserRole();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Keeps a focused text field above the keyboard (Android and iOS).
+  const keyboard = useKeyboardAwareScroll(scrollRef);
+
   const handleBack = useCallback(() => {
     if (navigation.canGoBack()) navigation.goBack();
     else navigation.navigate('Dashboard');
@@ -49,13 +53,19 @@ export default function AppLayout({
 
       <AppMenu visible={menuOpen} onClose={() => setMenuOpen(false)} activeKey={activeKey} context={context} />
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={{ flex: 1 }}>
         <ScrollView
-          ref={scrollRef}
+          ref={keyboard.ref}
           style={styles.scroll}
-          contentContainerStyle={[styles.content, bottomPadding(insets, bottomSpace)]}
+          contentContainerStyle={[
+            styles.content,
+            bottomPadding(insets, bottomSpace),
+            keyboard.extraSpace(bottomSpace),
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+          scrollEventThrottle={32}
+          onScroll={keyboard.onScroll}
           refreshControl={
             onRefresh ? (
               <RefreshControl
@@ -69,7 +79,7 @@ export default function AppLayout({
         >
           {children}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
 
       {footer}
     </View>

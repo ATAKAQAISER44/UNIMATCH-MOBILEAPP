@@ -23,6 +23,7 @@ import { normalizeIntendedLevel } from '../../utils/profileSetupUtils';
 import PaginatedResults from './PaginatedResults';
 import { smartMatchUIStyles as styles } from '../../styles/smartMatchUIStyles';
 import { authTheme } from '../../styles/authTheme';
+import useKeyboardAwareScroll from '../../utils/useKeyboardAwareScroll';
 
 const REGION_OPTIONS = [
   'Asia',
@@ -369,6 +370,8 @@ export default function ProfileMatchPanel({
   onOpenUniversity,
 }) {
   const insets = useSafeAreaInsets();
+  // Keeps the focused field above the keyboard.
+  const keyboard = useKeyboardAwareScroll();
   const [userId, setUserId] = useState(null);
 
   const [sortBy, setSortBy] = useState(DEFAULT_SORT_BY);
@@ -738,7 +741,11 @@ export default function ProfileMatchPanel({
     <>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scroll, bottomPadding(insets, 120)]}
+        contentContainerStyle={[styles.scroll, bottomPadding(insets, 120), keyboard.extraSpace(24)]}
+        ref={keyboard.ref}
+        onScroll={keyboard.onScroll}
+        scrollEventThrottle={32}
+        keyboardShouldPersistTaps="handled"
       >
         {headerComponent ? (
           <View style={{ marginBottom: 12 }}>{headerComponent}</View>

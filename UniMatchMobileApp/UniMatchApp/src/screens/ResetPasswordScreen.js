@@ -18,6 +18,7 @@ import { supabase } from '../services/supabase';
 import { AlertBox } from '../components';
 import { authTheme } from '../styles/authTheme';
 import { resetPasswordStyles as styles } from '../styles/resetPasswordStyles';
+import useKeyboardAwareScroll from '../utils/useKeyboardAwareScroll';
 
 const logo = require('../../assets/images/icon.png');
 // const logo = require('../assets/images/icon.png');
@@ -118,6 +119,8 @@ function ScreenHeader() {
 export default function ResetPasswordScreen({ navigation }) {
   // Light page: keep content clear of the notch / status bar and home bar.
   const insets = useSafeAreaInsets();
+  // Keeps the focused field above the keyboard.
+  const keyboard = useKeyboardAwareScroll();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -199,9 +202,12 @@ export default function ResetPasswordScreen({ navigation }) {
     >
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 16 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 16 }, keyboard.extraSpace(24)]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        ref={keyboard.ref}
+        onScroll={keyboard.onScroll}
+        scrollEventThrottle={32}
       >
         <View style={styles.card}>
           <ScreenHeader />

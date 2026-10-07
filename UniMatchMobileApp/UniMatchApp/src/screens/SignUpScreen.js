@@ -19,6 +19,7 @@ import { supabase } from '../services/supabase';
 import { AlertBox } from '../components';
 import { authTheme } from '../styles/authTheme';
 import { signUpStyles as styles } from '../styles/signUpStyles';
+import useKeyboardAwareScroll from '../utils/useKeyboardAwareScroll';
 
 const logo = require('../../assets/images/icon.png');
 
@@ -369,6 +370,8 @@ function PasswordStrength({ passwordStrength }) {
 
 export default function SignUpScreen({ navigation }) {
   const [form, setForm] = useState(initialForm);
+  // Keeps the focused field above the keyboard.
+  const keyboard = useKeyboardAwareScroll();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -541,9 +544,12 @@ export default function SignUpScreen({ navigation }) {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
           style={styles.container}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, keyboard.extraSpace(24)]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          ref={keyboard.ref}
+          onScroll={keyboard.onScroll}
+          scrollEventThrottle={32}
         >
           <View style={styles.card}>
             <HeaderCard />

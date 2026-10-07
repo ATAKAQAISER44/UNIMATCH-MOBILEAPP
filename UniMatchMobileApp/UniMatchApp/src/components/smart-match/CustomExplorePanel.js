@@ -23,6 +23,7 @@ import PaginatedResults from './PaginatedResults';
 import CustomFilterBuilder from './CustomFilterBuilder';
 import SavedSearchesPanel from './SavedSearchesPanel';
 import { authTheme } from '../../styles/authTheme';
+import useKeyboardAwareScroll from '../../utils/useKeyboardAwareScroll';
 
 const SORT_OPTIONS = [
   { label: 'Official Rank', value: 'official_rank' },
@@ -243,6 +244,8 @@ export default function CustomExplorePanel({
   fetchCustomExplore,
 }) {
   const insets = useSafeAreaInsets();
+  // Keeps the focused field above the keyboard.
+  const keyboard = useKeyboardAwareScroll();
   const draftStorageKey = useMemo(
     () => `unimatch_custom_explore_draft_${datasetKey}`,
     [datasetKey]
@@ -483,7 +486,11 @@ export default function CustomExplorePanel({
     <>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scroll, bottomPadding(insets, 120)]}
+        contentContainerStyle={[styles.scroll, bottomPadding(insets, 120), keyboard.extraSpace(24)]}
+        ref={keyboard.ref}
+        onScroll={keyboard.onScroll}
+        scrollEventThrottle={32}
+        keyboardShouldPersistTaps="handled"
       >
         {headerComponent ? (
           <View style={{ marginBottom: 12 }}>{headerComponent}</View>
