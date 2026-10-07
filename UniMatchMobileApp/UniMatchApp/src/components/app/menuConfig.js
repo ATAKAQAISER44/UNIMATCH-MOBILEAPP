@@ -57,7 +57,7 @@ export const POLICY_TOOLS = [
 
 const dashboardItem = { key: 'dashboard', label: 'Dashboard', hint: 'Your overview', icon: 'home-outline', route: 'Dashboard' };
 
-function researcherGroups(dataset = 'qs', year) {
+export function researcherGroups(dataset = 'qs', year) {
   const withYear = (params) => (year ? { ...params, year } : params);
   return [
     {

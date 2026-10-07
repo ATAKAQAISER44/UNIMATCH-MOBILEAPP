@@ -4,7 +4,9 @@ import React, { memo } from 'react';
 import {
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../AppText';
+import { authTheme } from '../../styles/authTheme';
 
 import { rankingsStyles as styles } from '../../styles/rankingsStyles';
 
@@ -17,7 +19,11 @@ const StatCard = memo(function StatCard({ value, label, icon }) {
       </View>
 
       <View style={styles.statIconBox}>
-        <Text style={styles.statIcon}>{icon}</Text>
+        {/^[a-z-]+$/.test(String(icon)) ? (
+          <Ionicons name={icon} size={16} color={authTheme.colors.brandTeal} />
+        ) : (
+          <Text style={styles.statIcon}>{icon}</Text>
+        )}
       </View>
     </View>
   );

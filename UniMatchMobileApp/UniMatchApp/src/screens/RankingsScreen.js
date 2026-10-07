@@ -199,12 +199,12 @@ export default function RankingsScreen({ route = {}, navigation }) {
           summary?.total_count ||
           totalResults ||
           '—',
-        icon: '⌂',
+        icon: 'school-outline',
       },
       {
         label: 'Countries',
         value: summary?.total_countries || countries.length - 1 || '—',
-        icon: '◎',
+        icon: 'earth-outline',
       },
       {
         label: 'Indicators',
@@ -214,12 +214,12 @@ export default function RankingsScreen({ route = {}, navigation }) {
           summary?.metrics_count ||
           config.indicators ||
           '—',
-        icon: '⌁',
+        icon: 'stats-chart-outline',
       },
       {
         label: 'Published',
         value: summary?.published || summary?.published_at || config.published,
-        icon: '□',
+        icon: 'calendar-outline',
       },
     ],
     [
