@@ -218,6 +218,10 @@ export function introText(name, info) {
   return sentences.join(' ');
 }
 
+// Session caches (see the loading effect below).
+const pageCache = new Map();
+const journeyCache = new Map();
+
 export default function UniversityScreen({ navigation, route }) {
   const params = route?.params || {};
   const name = params.name || 'University';
@@ -236,43 +240,71 @@ export default function UniversityScreen({ navigation, route }) {
   const saved = useSavedUniversities();
   const compare = useCompareList();
 
+  // The page shows as soon as the quick lookups (ranking rows + attributes)
+  // are back; the rank history (slower) fills the chart on its own. Both are
+  // remembered for the session, so reopening a university is instant.
+  const pageKey = `${name}|${params.country || ''}`;
+  const [journeyLoading, setJourneyLoading] = useState(false);
+
   useEffect(() => {
     let active = true;
+    const cached = pageCache.get(pageKey);
 
-    async function load() {
+    async function loadPage() {
+      if (cached && !reloadKey) {
+        setRows(cached.rows);
+        setAttributes(cached.attributes);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError('');
 
-      // All lookups run together; a university can be in some and not others.
-      const [rowsResult, journeyResult, attributeResult] = await Promise.allSettled([
+      const [rowsResult, attributeResult] = await Promise.allSettled([
         findUniversityInRankings(name, params.country),
-        fetchUniversityJourney(name),
         fetchUniversityAttributes(name, params.country),
       ]);
       if (!active) return;
 
       const nextRows = rowsResult.status === 'fulfilled' ? rowsResult.value : {};
-      const nextJourney = journeyResult.status === 'fulfilled' ? journeyResult.value : null;
       const nextAttributes = attributeResult.status === 'fulfilled' ? attributeResult.value : null;
-
       setRows(nextRows);
-      setJourney(nextJourney);
       setAttributes(nextAttributes);
 
       // "Not found" just means the university is in no ranking.
-      const failure = [rowsResult, journeyResult].find((result) => result.status === 'rejected');
-      const message = failure?.reason?.message || '';
-      if (!Object.keys(nextRows).length && !nextJourney && !nextAttributes && message && !/not found/i.test(message)) {
+      const message = rowsResult.status === 'rejected' ? rowsResult.reason?.message || '' : '';
+      if (!Object.keys(nextRows).length && !nextAttributes && message && !/not found/i.test(message)) {
         setError(message);
+      } else {
+        pageCache.set(pageKey, { rows: nextRows, attributes: nextAttributes });
       }
       setLoading(false);
     }
 
-    load();
+    async function loadJourney() {
+      if (journeyCache.has(name) && !reloadKey) {
+        setJourney(journeyCache.get(name));
+        return;
+      }
+      setJourney(null);
+      setJourneyLoading(true);
+      try {
+        const data = await fetchUniversityJourney(name);
+        journeyCache.set(name, data);
+        if (active) setJourney(data);
+      } catch {
+        if (active) setJourney(null);
+      } finally {
+        if (active) setJourneyLoading(false);
+      }
+    }
+
+    loadPage();
+    loadJourney();
     return () => {
       active = false;
     };
-  }, [name, params.country, reloadKey]);
+  }, [name, params.country, pageKey, reloadKey]);
 
   // The row of the ranking the user came from (or the first one found).
   const primaryKey = rows[params.dataset] ? params.dataset : RANKING_KEYS.find((key) => rows[key]);
@@ -494,10 +526,10 @@ export default function UniversityScreen({ navigation, route }) {
             </Card>
           )}
 
-          {journey && (
+          {(journey || journeyLoading) && (
             <Card>
               <SectionHeading eyebrow="Trend" title="Rank over the years" subtitle="Higher on the chart is a better rank." />
-              <RankJourneyChart datasets={journey.datasets} />
+              {journey ? <RankJourneyChart datasets={journey.datasets} /> : <LoadingBlock />}
             </Card>
           )}
 

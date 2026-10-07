@@ -28,6 +28,15 @@ def _regions() -> dict:
     return {k: g.mode().iloc[0] for k, g in df["Region"].groupby(keys) if k and not g.mode().empty}
 
 
+def _country_keys(view: dict) -> pd.Series:
+    """country_key of every row, worked out once per loaded edition."""
+    keys = view.get("_country_keys")
+    if keys is None or not keys.index.equals(view["df"].index):
+        keys = view["df"][view["country_col"]].map(country_key)
+        view["_country_keys"] = keys
+    return keys
+
+
 def _ranking_stats(df, values, metrics, mask) -> dict:
     rows = df[mask]
     ranks = rows["_rank_numeric"]
@@ -98,7 +107,7 @@ def build_country_overview(country: str) -> dict:
         points = []
         for year in sorted(available_years(dataset)):
             view, _year, _years = load_researcher_dataset(dataset, year)
-            ranks = view["df"].loc[view["df"][view["country_col"]].map(country_key) == key, "_rank_numeric"]
+            ranks = view["df"].loc[_country_keys(view) == key, "_rank_numeric"]
             points.append({"year": year, "count": int(len(ranks)), "top_500": int((ranks <= 500).sum()),
                            "rank": int(ranks.min()) if len(ranks) else None})
         trend[dataset] = points

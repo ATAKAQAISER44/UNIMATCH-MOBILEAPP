@@ -34,6 +34,25 @@ from app.policymaker.router import router as policymaker_router
 from app.student.router import router as student_router
 
 app = FastAPI(title="UniMatch Python Backend")
+
+
+@app.on_event("startup")
+def _warm_ranking_editions():
+    """Load every ranking edition once in the background, so the first
+    University Journey / country request does not wait for the CSV files."""
+    import threading
+
+    def warm():
+        from app.researcher.dataset_service import available_years, load_researcher_dataset
+
+        for dataset in ("qs", "the", "arwu"):
+            try:
+                for year in available_years(dataset):
+                    load_researcher_dataset(dataset, year)
+            except Exception:  # warming is best-effort; requests still load on demand
+                pass
+
+    threading.Thread(target=warm, daemon=True).start()
 app.include_router(researcher_router)
 app.include_router(administrator_router)
 app.include_router(policymaker_router)

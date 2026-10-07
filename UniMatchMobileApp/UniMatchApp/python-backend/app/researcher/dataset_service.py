@@ -169,6 +169,13 @@ def _read_csv(path: Path) -> pd.DataFrame:
         return pd.read_csv(path, encoding="latin1")
 
 
+# Loaded editions, keyed by file path and modification time, so each CSV is
+# read and cleaned once instead of on every request (a changed or new file is
+# picked up automatically). Callers only read view["df"]; they copy before
+# changing it.
+_HISTORICAL_CACHE: dict = {}
+
+
 def _load_historical_dataset(dataset: str, year: int):
     path = _historical_files(dataset).get(year)
     if path is None:
@@ -177,6 +184,19 @@ def _load_historical_dataset(dataset: str, year: int):
             detail=f"{dataset.upper()} {year} researcher dataset not found",
         )
 
+    cache_key = (dataset, year, str(path), path.stat().st_mtime)
+    cached = _HISTORICAL_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    view = _build_historical_view(dataset, year, path)
+    for old_key in [k for k in _HISTORICAL_CACHE if k[:2] == (dataset, year)]:
+        del _HISTORICAL_CACHE[old_key]
+    _HISTORICAL_CACHE[cache_key] = view
+    return view
+
+
+def _build_historical_view(dataset: str, year: int, path: Path):
     df = clean_text_columns(standardize_column_names(_read_csv(path))).drop_duplicates()
     name_col = find_column(df, COLUMN_MAP[dataset]["name"])
     country_col = find_column(df, COLUMN_MAP[dataset]["country"])

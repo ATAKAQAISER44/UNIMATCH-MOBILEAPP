@@ -40,8 +40,17 @@ def _overall_score_series(view: dict) -> pd.Series:
 def find_university_row(view: dict, key: str):
     """The row of one university (by normalized name key) in a loaded dataset view, or None."""
     df = view["df"]
-    matches = df[df[view["name_col"]].astype(str).map(normalize_university_name) == key]
+    matches = df[name_keys(view) == key]
     return None if matches.empty else matches.iloc[0]
+
+
+def name_keys(view: dict) -> pd.Series:
+    """Normalized name of every row, worked out once per loaded edition."""
+    keys = view.get("_name_keys")
+    if keys is None or not keys.index.equals(view["df"].index):
+        keys = view["df"][view["name_col"]].astype(str).map(normalize_university_name)
+        view["_name_keys"] = keys
+    return keys
 
 
 def search_universities(query: str, limit: int = 15) -> list[dict]:
@@ -58,7 +67,7 @@ def search_universities(query: str, limit: int = 15) -> list[dict]:
         name_col = view["name_col"]
         country_col = view["country_col"]
 
-        normalized_names = df[name_col].astype(str).map(normalize_university_name)
+        normalized_names = name_keys(view)
         matches = df[normalized_names.str.contains(re.escape(query_key), na=False)]
 
         for _, row in matches.iterrows():
