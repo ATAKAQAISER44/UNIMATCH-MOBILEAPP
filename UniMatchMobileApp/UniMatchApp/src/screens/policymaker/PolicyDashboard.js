@@ -6,8 +6,7 @@
 // and the tool cards.
 
 import React, { useState } from 'react';
-import { TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View } from 'react-native';
 
 import { Text } from '../../components/AppText';
 import AppLayout from '../../components/app/AppLayout';
@@ -23,9 +22,9 @@ import {
   SelectField,
 } from '../../components/researcher/ResearcherUI';
 import { RankingDot } from '../../components/policymaker/PolicyUI';
+import { HowItWorks, QuickPicks, RankingsCovered, ToolGrid, WhatYouGet } from '../../components/app/GettingStarted';
 import { RANKINGS } from '../../constants/roleConstants';
 import { useCountryList, useCountryOverview, usePolicyCountry } from '../../services/policyApi';
-import { dashboardStyles } from '../../styles/dashboardStyles';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { authTheme } from '../../styles/authTheme';
 
@@ -82,23 +81,20 @@ function RankingGlance({ ranking, data }) {
   );
 }
 
-function ToolCard({ tool, onPress }) {
-  return (
-    <TouchableOpacity
-      style={[dashboardStyles.datasetTile, { flexBasis: 160, minHeight: 120 }]}
-      activeOpacity={0.86}
-      onPress={onPress}
-      accessibilityRole="button"
-    >
-      <View style={[dashboardStyles.miniIconBox, { width: 38, height: 38, marginBottom: 9 }]}>
-        <Ionicons name={tool.icon} size={19} color={authTheme.colors.brandTeal} />
-      </View>
-      <Text style={[dashboardStyles.datasetTitle, { paddingRight: 0 }]}>{tool.label}</Text>
-      <Text style={dashboardStyles.datasetDescription}>{tool.text}</Text>
-      <Text style={dashboardStyles.openText}>Open →</Text>
-    </TouchableOpacity>
-  );
-}
+const POPULAR_COUNTRIES = ['Pakistan', 'India', 'United Kingdom', 'United States', 'China (Mainland)', 'Germany', 'Malaysia', 'Saudi Arabia'];
+
+const WHAT_YOU_GET = [
+  { icon: 'podium-outline', title: 'Ranking presence', text: 'Universities in QS, THE and ARWU, and how many reach the top 100 / 500.' },
+  { icon: 'analytics-outline', title: 'Indicator gaps', text: 'Where the country is ahead or behind its region and the world.' },
+  { icon: 'trending-up-outline', title: 'Trend', text: "The best university's rank over the years in each ranking." },
+  { icon: 'wallet-outline', title: 'Access & affordability', text: 'Typical fees, living cost, admission and scholarships.' },
+];
+
+const STEPS = [
+  { title: 'Choose your country', text: 'Pick it once; every tool then uses it.' },
+  { title: 'Analyse and compare', text: 'Read the gaps and compare with up to 3 other countries.' },
+  { title: 'Share a policy report', text: 'Recommendations with evidence, as PDF or CSV.' },
+];
 
 export default function PolicyDashboard({ navigation, profile, refreshing, onRefresh }) {
   const [country, saveCountry] = usePolicyCountry();
@@ -121,6 +117,9 @@ export default function PolicyDashboard({ navigation, profile, refreshing, onRef
   };
 
   const picking = !country || changing;
+  const countryList = useCountryList().data?.countries || [];
+  const quickPicks = POPULAR_COUNTRIES.filter((name) => countryList.includes(name) && name !== country);
+  const openTool = (tool) => navigation.navigate(tool.route, tool.params, { pop: true });
 
   return (
     <AppLayout navigation={navigation} activeKey="dashboard" isRoot refreshing={refreshing} onRefresh={onRefresh}>
@@ -138,6 +137,7 @@ export default function PolicyDashboard({ navigation, profile, refreshing, onRef
                 Choose the country you are planning for. You can change it later.
               </Text>
               {saving ? <InlineLoader /> : <CountryPicker value={country} onPick={pick} />}
+              {!saving && <QuickPicks options={quickPicks.slice(0, 6)} onPick={pick} />}
               {changing && !!country && !saving && (
                 <OutlineButton
                   title="Cancel"
@@ -183,14 +183,16 @@ export default function PolicyDashboard({ navigation, profile, refreshing, onRef
             </Card>
           )}
 
-          <View style={dashboardStyles.datasetSection}>
-            <Text style={dashboardStyles.sectionTitle}>Tools</Text>
-            <View style={[dashboardStyles.datasetList, { marginTop: 6 }]}>
-              {POLICY_TOOLS.map((tool) => (
-                <ToolCard key={tool.key} tool={tool} onPress={() => navigation.navigate(tool.route, tool.params, { pop: true })} />
-              ))}
-            </View>
-          </View>
+          <ToolGrid tools={POLICY_TOOLS} onOpen={openTool} />
+        </>
+      )}
+
+      {country !== undefined && !country && (
+        <>
+          <WhatYouGet subtitle="For the country you choose." items={WHAT_YOU_GET} />
+          <RankingsCovered />
+          <HowItWorks steps={STEPS} />
+          <ToolGrid tools={POLICY_TOOLS} onOpen={openTool} note="Each tool asks for your country first." />
         </>
       )}
     </AppLayout>

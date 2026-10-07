@@ -7,7 +7,6 @@
 
 import React, { useState } from 'react';
 import { TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '../../components/AppText';
 import AppLayout from '../../components/app/AppLayout';
@@ -21,6 +20,20 @@ import { authTheme } from '../../styles/authTheme';
 import { RANKINGS } from '../../constants/roleConstants';
 import { useAdminInstitution, useInstitutionPerformance, useInstitutionProfile, useStudentDemand } from '../../services/adminApi';
 import { buildRecommendations } from '../../utils/adminRecommendations';
+import { HowItWorks, RankingsCovered, ToolGrid, WhatYouGet } from '../../components/app/GettingStarted';
+
+const WHAT_YOU_GET = [
+  { icon: 'podium-outline', title: 'Rank and trend', text: 'Your rank in QS, THE and ARWU, and how it moved over the years.' },
+  { icon: 'analytics-outline', title: 'Strengths and gaps', text: 'Every indicator against universities ranked near you.' },
+  { icon: 'document-text-outline', title: 'Student-facing profile', text: 'Fees, admission and support compared with your country.' },
+  { icon: 'people-outline', title: 'Student demand', text: 'What UniMatch students want, and how many you fit.' },
+];
+
+const STEPS = [
+  { title: 'Choose your university', text: 'Search by name; every tool then uses it.' },
+  { title: 'Benchmark and test', text: 'Compare with peers and try what-if weights.' },
+  { title: 'Share a report', text: 'Findings and recommendations, as PDF or CSV.' },
+];
 
 function InstitutionPicker({ onPick }) {
   const [saving, setSaving] = useState(false);
@@ -63,6 +76,7 @@ export default function AdminDashboard({ navigation, profile, refreshing, onRefr
   }
 
   const open = (route) => navigation.navigate(route, undefined, { pop: true });
+  const openTool = (tool) => open(tool.route);
 
   return (
     <AppLayout navigation={navigation} activeKey="dashboard" isRoot refreshing={refreshing} onRefresh={onRefresh}>
@@ -154,26 +168,16 @@ export default function AdminDashboard({ navigation, profile, refreshing, onRefr
             </Card>
           )}
 
-          <View style={dashboardStyles.datasetSection}>
-            <Text style={dashboardStyles.sectionTitle}>Tools</Text>
-            <View style={[dashboardStyles.datasetList, { marginTop: 8 }]}>
-              {ADMIN_TOOLS.map((tool) => (
-                <TouchableOpacity
-                  key={tool.key}
-                  style={[dashboardStyles.datasetTile, { minHeight: 0 }]}
-                  activeOpacity={0.86}
-                  onPress={() => open(tool.route)}
-                >
-                  <View style={[dashboardStyles.miniIconBox, { width: 38, height: 38, marginBottom: 9 }]}>
-                    <Ionicons name={tool.icon} size={19} color={authTheme.colors.brandTeal} />
-                  </View>
-                  <Text style={dashboardStyles.datasetTitle}>{tool.label}</Text>
-                  <Text style={dashboardStyles.datasetDescription}>{tool.text}</Text>
-                  <Text style={dashboardStyles.openText}>Open →</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+          <ToolGrid tools={ADMIN_TOOLS} onOpen={openTool} />
+        </>
+      )}
+
+      {institution !== undefined && !institution && (
+        <>
+          <WhatYouGet subtitle="For the university you choose." items={WHAT_YOU_GET} />
+          <RankingsCovered />
+          <HowItWorks steps={STEPS} />
+          <ToolGrid tools={ADMIN_TOOLS} onOpen={openTool} note="Each tool asks for your university first." />
         </>
       )}
     </AppLayout>
