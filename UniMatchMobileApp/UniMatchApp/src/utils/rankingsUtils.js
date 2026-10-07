@@ -143,3 +143,10 @@ export function escapeCsv(value) {
 
   return `"${String(value).replace(/"/g, '""')}"`;
 }
+// "#12", "=3", "101-150" -> 12, 3, 101. Returns null when there is no number.
+export function getRankNumber(rank) {
+  const match = String(rank ?? '').match(/\d+/);
+  if (!match) return null;
+  const number = Number(match[0]);
+  return Number.isFinite(number) ? number : null;
+}

@@ -34,6 +34,7 @@ export default function ProfileSetupContent({
   loading,
   pageLoading,
   isEditMode,
+  canExit,
   message,
   ranges,
   picker,
@@ -63,6 +64,7 @@ export default function ProfileSetupContent({
   addTest,
   removeTest,
   clearPreferredCountry,
+  toggleCountry,
   clearPriority,
   isPriorityLocked,
   getPriorityPlaceholder,
@@ -149,6 +151,7 @@ export default function ProfileSetupContent({
                       countriesForRegion={countriesForRegion}
                       openPicker={openPicker}
                       clearPreferredCountry={clearPreferredCountry}
+                      toggleCountry={toggleCountry}
                     />
                   )}
 
@@ -176,6 +179,7 @@ export default function ProfileSetupContent({
                     step={step}
                     loading={loading}
                     isEditMode={isEditMode}
+                    canExit={canExit}
                     onBack={handleBack}
                     onNext={handleNext}
                     onSubmit={handleSubmit}

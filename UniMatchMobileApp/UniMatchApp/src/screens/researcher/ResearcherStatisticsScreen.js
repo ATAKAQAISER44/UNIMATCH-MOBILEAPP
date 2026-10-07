@@ -31,6 +31,7 @@ import {
   useLatestRequest,
   usePersistentToggle,
 } from '../../components/researcher/ResearcherUI';
+import { pageGuide } from '../../components/researcher/pageGuides';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { authTheme } from '../../styles/authTheme';
 import {
@@ -154,18 +155,21 @@ function IndicatorCard({ row }) {
         </>
       ) : null}
 
-      {meaning.tone === 'warning' || meaning.tone === 'muted' ? (
-        <Text
-          style={[
-            styles.bodyText,
-            { marginTop: 9, fontSize: 12 },
-            meaning.tone === 'warning' && { color: '#B45309', fontWeight: '700' },
-            meaning.tone === 'muted' && { color: '#94A3B8' },
-          ]}
-        >
-          {meaning.text}
-        </Text>
-      ) : null}
+      {!!meaning.text && (
+        <View style={{ marginTop: 9 }}>
+          <Text style={[styles.kvLabel, { marginBottom: 2 }]}>What this means</Text>
+          <Text
+            style={[
+              styles.bodyText,
+              { fontSize: 12 },
+              meaning.tone === 'warning' && { color: '#B45309', fontWeight: '700' },
+              meaning.tone === 'muted' && { color: '#94A3B8' },
+            ]}
+          >
+            {meaning.text}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -365,7 +369,7 @@ export default function ResearcherStatisticsScreen({ navigation, route }) {
         setReloadKey((value) => value + 1);
       }}
     >
-      <PageHeader title={`Statistics · ${datasetInfo.shortName} ${year}`} />
+      <PageHeader title={`Statistics · ${datasetInfo.shortName} ${year}`} guide={pageGuide('statistics', { dataset: datasetKey })} />
 
       <DatasetYearBar
         datasetKey={datasetKey}
@@ -412,11 +416,12 @@ export default function ResearcherStatisticsScreen({ navigation, route }) {
         <>
           <StatGrid
             items={[
-              { label: 'Universities', value: stats?.total_universities ?? '-' },
-              { label: 'Indicators', value: stats?.indicators?.length ?? '-' },
-              { label: 'With gaps', value: stats ? indicatorsWithMissing : '-' },
+              { label: 'Universities', hint: 'in this selection', value: stats?.total_universities ?? '-' },
+              { label: 'Indicators', hint: 'scores the ranking uses', value: stats?.indicators?.length ?? '-' },
+              { label: 'With gaps', hint: 'some have no score', value: stats ? indicatorsWithMissing : '-' },
               {
                 label: 'Overall scores',
+                hint: 'exact; the rest missing or a range',
                 value: stats?.overall ? `${stats.overall.available} / ${stats.overall.total}` : '-',
               },
             ]}

@@ -1,7 +1,7 @@
 
 // src/components/smart-match/CustomFilterBuilder.js
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -13,18 +13,32 @@ import { Text, TextInput } from '../AppText';
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { authTheme } from '../../styles/authTheme';
+import SelectField from './SelectField';
+import useProfileOptions from './useProfileOptions';
 
 const FIELD_OPTIONS = [
-  { value: 'region', label: 'Region', type: 'text', placeholder: 'Asia' },
-  { value: 'country', label: 'Country', type: 'text', placeholder: 'Pakistan' },
-  { value: 'degree', label: 'Degree', type: 'text', placeholder: 'MS' },
-  { value: 'program', label: 'Program', type: 'text', placeholder: 'Cyber Security' },
+  { value: 'region', label: 'Region', type: 'select' },
+  { value: 'country', label: 'Country', type: 'select' },
+  { value: 'degree', label: 'Degree', type: 'select' },
+  { value: 'program', label: 'Program', type: 'select' },
   { value: 'cgpa', label: 'CGPA', type: 'number', placeholder: '3.1' },
   { value: 'tuition', label: 'Tuition', type: 'number', placeholder: '4000' },
   { value: 'living_cost', label: 'Living Cost', type: 'number', placeholder: '25000' },
-  { value: 'scholarship', label: 'Scholarship', type: 'text', placeholder: 'Scholarship-supported' },
+  { value: 'scholarship', label: 'Scholarship', type: 'select' },
   { value: 'acceptance_rate', label: 'Acceptance Rate', type: 'number', placeholder: '50' },
   { value: 'employability', label: 'Employability', type: 'number', placeholder: '80' },
+];
+
+// Only Program may be added more than once (web CustomFilterBuilder).
+const REPEATABLE_FIELDS = new Set(['program']);
+
+// Values the backend understands for the scholarship filter.
+const SCHOLARSHIP_VALUES = [
+  'Yes',
+  'No',
+  'Scholarship-supported',
+  'Fully funded',
+  'Self-funded',
 ];
 
 const NUMBER_FIELDS = [
@@ -57,6 +71,34 @@ function formatFieldLabel(fieldValue) {
   return getFieldConfig(fieldValue).label;
 }
 
+function isRepeatable(field) {
+  return REPEATABLE_FIELDS.has(field);
+}
+
+function removeDuplicateFilters(filters = []) {
+  const seen = new Set();
+
+  return filters.filter((filter) => {
+    if (!filter?.field) return false;
+    if (isRepeatable(filter.field)) return true;
+    if (seen.has(filter.field)) return false;
+    seen.add(filter.field);
+    return true;
+  });
+}
+
+// Fields still free for the filter at currentIndex (or a new filter).
+function getAvailableFields(filters = [], currentIndex = -1) {
+  const used = new Set();
+
+  filters.forEach((filter, index) => {
+    if (index === currentIndex || !filter?.field || isRepeatable(filter.field)) return;
+    used.add(filter.field);
+  });
+
+  return FIELD_OPTIONS.filter((field) => isRepeatable(field.value) || !used.has(field.value));
+}
+
 export default function CustomFilterBuilder({
   filters = [],
   setFilters,
@@ -65,17 +107,50 @@ export default function CustomFilterBuilder({
   const [fieldModalIndex, setFieldModalIndex] = useState(null);
   const [operatorModalIndex, setOperatorModalIndex] = useState(null);
 
+  const { regions, regionCountries, allCountries, fieldsOfStudy, degreeLevels } = useProfileOptions();
+
   const hasFilters = Array.isArray(filters) && filters.length > 0;
 
+  // Drop repeated fields (e.g. from an older saved search).
+  useEffect(() => {
+    if (!Array.isArray(filters)) return;
+    const cleaned = removeDuplicateFilters(filters);
+    if (cleaned.length !== filters.length) setFilters(cleaned);
+  }, [filters, setFilters]);
+
+  const regionFilterValue = (filters || []).find(
+    (item) => item?.field === 'region' && item?.operator === '='
+  )?.value;
+
+  const getValueOptions = (field) => {
+    if (field === 'region') return regions;
+    if (field === 'country') {
+      return regionFilterValue && regionCountries[regionFilterValue]
+        ? regionCountries[regionFilterValue]
+        : allCountries;
+    }
+    if (field === 'degree') return degreeLevels;
+    if (field === 'program') return fieldsOfStudy;
+    if (field === 'scholarship') return SCHOLARSHIP_VALUES;
+    return [];
+  };
+
+  const canAddFilter = getAvailableFields(filters || []).length > 0;
+
   const addFilter = () => {
-    setFilters((prev) => [
-      ...(Array.isArray(prev) ? prev : []),
-      {
-        field: 'region',
-        operator: '=',
-        value: '',
-      },
-    ]);
+    setFilters((prev) => {
+      const cleaned = removeDuplicateFilters(Array.isArray(prev) ? prev : []);
+      const nextField = getAvailableFields(cleaned)[0]?.value || 'program';
+
+      return [
+        ...cleaned,
+        {
+          field: nextField,
+          operator: getOperators(nextField)[0],
+          value: '',
+        },
+      ];
+    });
   };
 
   const removeFilter = (index) => {
@@ -105,7 +180,10 @@ export default function CustomFilterBuilder({
     );
   };
 
-  const selectedFieldOptions = FIELD_OPTIONS;
+  const selectedFieldOptions = useMemo(
+    () => (fieldModalIndex === null ? FIELD_OPTIONS : getAvailableFields(filters || [], fieldModalIndex)),
+    [fieldModalIndex, filters]
+  );
 
   const selectedOperatorOptions = useMemo(() => {
     if (operatorModalIndex === null) return [];
@@ -124,9 +202,12 @@ export default function CustomFilterBuilder({
         </View>
 
         <TouchableOpacity
-          style={styles.addButtonShell}
+          style={[styles.addButtonShell, !canAddFilter && styles.addButtonDisabled]}
           onPress={addFilter}
+          disabled={!canAddFilter}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Add filter"
         >
           <LinearGradient
             colors={authTheme.gradients.button}
@@ -145,7 +226,8 @@ export default function CustomFilterBuilder({
             <Text style={styles.emptyIcon}>🔎</Text>
           </View>
 
-          <Text style={styles.emptyTitle}>No filters yet — tap + Add</Text>
+          <Text style={styles.emptyTitle}>No filters yet</Text>
+          <Text style={styles.emptyText}>Tap + Add, or Apply to see all.</Text>
 
         </View>
       )}
@@ -174,6 +256,8 @@ export default function CustomFilterBuilder({
                   style={styles.deleteButton}
                   onPress={() => removeFilter(index)}
                   activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete filter ${index + 1}`}
                 >
                   <Text style={styles.deleteButtonText}>Delete</Text>
                 </TouchableOpacity>
@@ -212,15 +296,25 @@ export default function CustomFilterBuilder({
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Value</Text>
 
-                <TextInput
-                  style={styles.input}
-                  value={String(filter?.value ?? '')}
-                  onChangeText={(value) => updateFilter(index, 'value', value)}
-                  placeholder={fieldConfig.placeholder || 'Enter value'}
-                  placeholderTextColor="#94a3b8"
-                  keyboardType={fieldConfig.type === 'number' ? 'numeric' : 'default'}
-                  autoCapitalize="none"
-                />
+                {fieldConfig.type === 'number' ? (
+                  <TextInput
+                    style={styles.input}
+                    value={String(filter?.value ?? '')}
+                    onChangeText={(value) => updateFilter(index, 'value', value)}
+                    placeholder={fieldConfig.placeholder || 'Enter value'}
+                    placeholderTextColor="#94a3b8"
+                    keyboardType="numeric"
+                    autoCapitalize="none"
+                  />
+                ) : (
+                  <SelectField
+                    title={fieldConfig.label}
+                    placeholder={`Select ${fieldConfig.label.toLowerCase()}`}
+                    value={filter?.value ?? ''}
+                    options={getValueOptions(filter?.field)}
+                    onChange={(value) => updateFilter(index, 'value', value)}
+                  />
+                )}
               </View>
 
               <View style={styles.previewBox}>
@@ -386,6 +480,10 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
+  addButtonDisabled: {
+    opacity: 0.5,
+  },
+
   addButton: {
     minHeight: 40,
     borderRadius: 14,
@@ -489,7 +587,7 @@ const styles = StyleSheet.create({
   },
 
   deleteButton: {
-    minHeight: 32,
+    minHeight: 40,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#FECACA',
@@ -646,8 +744,8 @@ const styles = StyleSheet.create({
   },
 
   closeButton: {
-    width: 34,
-    height: 34,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',

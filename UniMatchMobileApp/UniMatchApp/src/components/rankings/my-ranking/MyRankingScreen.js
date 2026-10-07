@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import RankingsHero from '../RankingsHero';
 import RankingTabs from '../RankingTabs';
+import PaginationControls from '../PaginationControls';
 
 import { authTheme } from '../../../styles/authTheme';
 import { rankingsStyles as styles } from '../../../styles/rankingsStyles';
@@ -377,38 +378,14 @@ export default function MyRankingScreen({
       })}
 
       {myResults.length > MY_PAGE_SIZE ? (
-        <View style={myStyles.myPagination}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            disabled={myPage <= 1}
-            style={[myStyles.myPageBtn, myPage <= 1 && myStyles.myPageDisabled]}
-            onPress={() => {
-              setMyPage((previous) => Math.max(previous - 1, 1));
-              setOpenBreakdownKey(null);
-            }}
-          >
-            <Text style={myStyles.myPageBtnText}>Previous</Text>
-          </TouchableOpacity>
-
-          <Text style={myStyles.myPageText}>
-            Page {myPage} / {myTotalPages}
-          </Text>
-
-          <TouchableOpacity
-            activeOpacity={0.85}
-            disabled={myPage >= myTotalPages}
-            style={[
-              myStyles.myPageBtn,
-              myPage >= myTotalPages && myStyles.myPageDisabled,
-            ]}
-            onPress={() => {
-              setMyPage((previous) => Math.min(previous + 1, myTotalPages));
-              setOpenBreakdownKey(null);
-            }}
-          >
-            <Text style={myStyles.myPageBtnText}>Next</Text>
-          </TouchableOpacity>
-        </View>
+        <PaginationControls
+          page={myPage}
+          totalPages={myTotalPages}
+          onPageChange={(target) => {
+            setMyPage(target);
+            setOpenBreakdownKey(null);
+          }}
+        />
       ) : null}
     </ScrollView>
   );
@@ -753,6 +730,9 @@ const MyRankingResultCard = memo(function MyRankingResultCard({
           activeOpacity={0.85}
           onPress={handleCompare}
           style={[myStyles.iconActionBtn, compared && myStyles.compareIconActive]}
+          accessibilityRole="button"
+          accessibilityLabel={compared ? 'Remove from compare' : 'Add to compare'}
+          accessibilityState={{ selected: !!compared }}
         >
           <Ionicons
             name={compared ? 'checkmark-outline' : 'add-outline'}
@@ -765,6 +745,9 @@ const MyRankingResultCard = memo(function MyRankingResultCard({
           activeOpacity={0.85}
           onPress={handleSave}
           style={[myStyles.iconActionBtn, saved && myStyles.saveIconActive]}
+          accessibilityRole="button"
+          accessibilityLabel={saved ? 'Unsave' : 'Save'}
+          accessibilityState={{ selected: !!saved }}
         >
           <Ionicons
             name={saved ? 'star' : 'star-outline'}

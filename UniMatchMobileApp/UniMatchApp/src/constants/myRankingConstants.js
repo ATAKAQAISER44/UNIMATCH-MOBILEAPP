@@ -96,6 +96,16 @@ export const DATASET_METRICS = {
 
 export const ATTRIBUTE_CONFIG = [
   {
+    key: 'tuition_fee_score',
+    label: 'Tuition Fee',
+    helper: 'Local fee if the university is in your home country, else international fee',
+  },
+  {
+    key: 'tuition_fee_local_score',
+    label: 'Local Tuition',
+    helper: 'Lower local (domestic) fee scores higher',
+  },
+  {
     key: 'tuition_fee_international_score',
     label: 'International Tuition',
     helper: 'Lower fee scores higher',
@@ -178,7 +188,7 @@ export const ATTRIBUTE_CONFIG = [
 ];
 
 export const DEFAULT_VISIBLE_ATTRIBUTE_KEYS = [
-  'tuition_fee_international_score',
+  'tuition_fee_score',
   'living_cost_score',
   'scholarship_score',
 ];

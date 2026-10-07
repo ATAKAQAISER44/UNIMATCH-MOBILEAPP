@@ -56,6 +56,19 @@ const STEPS = [
   ['Measure the movement', 'Ranks that barely move are stable; big jumps mean the rank depends on exact weights.'],
 ];
 
+const places = (count) => `${count} place${count === 1 ? '' : 's'}`;
+
+// Plain words for one university's result (web: researchInsights.describeRow).
+export function describeRow(row, runs) {
+  const up = row.rank - row.range_low;
+  const down = row.range_high - row.rank;
+  if (up === 0 && down === 0) {
+    return `Stayed at #${row.rank} in almost every test (${row.same_rank_pct}% of ${runs}).`;
+  }
+  const moves = [up ? `up to ${places(up)} higher` : '', down ? `up to ${places(down)} lower` : ''].filter(Boolean).join(', ');
+  return `In 90% of the tests it ranked #${row.range_low}–#${row.range_high} (${moves}).`;
+}
+
 function VerdictPill({ verdict }) {
   const info = VERDICTS[verdict];
   return (
@@ -269,6 +282,11 @@ export default function RankStabilityPanel({
               >
                 <Text style={[styles.statValue, { color: verdict.colors.text }]}>{stability.verdict_counts[key]}</Text>
                 <Text style={[styles.statLabel, { color: verdict.colors.text }]}>{verdict.label}</Text>
+                {!!verdict.meaning && (
+                  <Text style={[styles.statHint, { color: verdict.colors.text, textAlign: 'center', opacity: 0.85 }]}>
+                    {verdict.meaning}
+                  </Text>
+                )}
               </View>
             ))}
           </View>
@@ -318,7 +336,7 @@ export default function RankStabilityPanel({
                 </View>
 
                 <MoveBar up={row.rank - row.range_low} down={row.range_high - row.rank} max={maxMove} />
-
+                <Text style={[styles.mutedText, { marginTop: 6 }]}>{describeRow(row, stability.runs)}</Text>
               </View>
             ))}
 

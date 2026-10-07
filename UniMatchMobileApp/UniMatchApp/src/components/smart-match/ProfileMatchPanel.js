@@ -20,46 +20,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../services/supabase';
 import { getSignedInUser } from '../../services/session';
 import { normalizeIntendedLevel } from '../../utils/profileSetupUtils';
+import { CGPA_SCALE_OPTIONS, SCORE_TYPE_OPTIONS } from '../../constants/profileSetupConstants';
+import {
+  SMART_SORT_OPTIONS,
+  SMART_SORT_ORDER_OPTIONS,
+  sortUniversitiesLocally,
+} from '../../utils/smartMatchSort';
 import PaginatedResults from './PaginatedResults';
+import SelectField from './SelectField';
+import useProfileOptions from './useProfileOptions';
 import { smartMatchUIStyles as styles } from '../../styles/smartMatchUIStyles';
 import { authTheme } from '../../styles/authTheme';
 import useKeyboardAwareScroll from '../../utils/useKeyboardAwareScroll';
 
-const REGION_OPTIONS = [
-  'Asia',
-  'Europe',
-  'North America',
-  'South America',
-  'Australia',
-  'Africa',
-];
-
-const DEGREE_OPTIONS = ['Bachelor', 'Master', 'MS leading to PhD', 'PhD'];
-
-const SCHOLARSHIP_OPTIONS = [
-  'Scholarship-supported',
-  'Fully funded',
-  'Self-funded',
-];
-
-const SCORE_TYPE_OPTIONS = ['CGPA', 'Percentage'];
-
-const SORT_OPTIONS = [
-  { label: 'Official Rank', value: 'official_rank' },
-  { label: 'Smart Rank', value: 'smart_rank' },
-  { label: 'Personalized Score', value: 'personalized_score' },
-  { label: 'Tuition Fee', value: 'tuition_fee' },
-  { label: 'Living Cost', value: 'living_cost' },
-  { label: 'Acceptance Rate', value: 'acceptance_rate' },
-  { label: 'Employability', value: 'graduate_employability_rate' },
-];
-
-const SORT_ORDER_OPTIONS = [
-  { label: 'Ascending', value: 'asc' },
-  { label: 'Descending', value: 'desc' },
-];
-
-const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100];
 
 const DEFAULT_SORT_BY = 'official_rank';
 const DEFAULT_SORT_ORDER = 'asc';
@@ -67,18 +41,37 @@ const DEFAULT_SORT_ORDER = 'asc';
 const DEFAULT_TOP_N = 0;
 const DEFAULT_PAGE_SIZE = 5;
 
+const FIELD_ORDER = [
+  'intended_education_level',
+  'field_of_study',
+  'score_type',
+  'cgpa_scale',
+  'score_value',
+  'preferred_region',
+  'preferred_country',
+  'min_tuition_fee',
+  'max_tuition_fee',
+  'living_cost_tolerance',
+  'scholarship_requirement',
+];
+
 const INITIAL_PROFILE = {
+  user: {
+    country: '',
+  },
   academic: {
     intended_education_level: '',
     field_of_study: '',
     score_type: 'CGPA',
     score_value: '',
+    cgpa_scale: '',
   },
   geographic: {
     preferred_region: '',
-    preferred_country: '',
+    preferred_country: [],
   },
   financial: {
+    min_tuition_fee: '',
     max_tuition_fee: '',
     living_cost_tolerance: '',
     scholarship_requirement: '',
@@ -101,12 +94,141 @@ function toNumberOrEmpty(value) {
   return numberValue;
 }
 
+function splitCountries(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+
+  return String(value)
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeScoreType(value) {
+  if (value === 'GPA/CGPA') return 'CGPA';
+  return value || 'CGPA';
+}
+
+function getCgpaScaleNumber(scale) {
+  const match = String(scale || '').match(/\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : null;
+}
+
+function formatAmount(value) {
+  const number = Math.round(Number(value));
+  if (!Number.isFinite(number)) return String(value);
+  return String(number).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function getRange(ranges, key) {
+  const range = ranges?.[key];
+  if (!range) return null;
+
+  const min = Number(range.min);
+  const max = Number(range.max);
+
+  return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null;
+}
+
+function rangeHint(ranges, key) {
+  const range = getRange(ranges, key);
+  return range ? `Range: ${formatAmount(range.min)}–${formatAmount(range.max)}` : '';
+}
+
+// Same rules as web ProfileMatchPanel. Messages are kept short.
+function getValidationErrors(profile, ranges, regionCountries) {
+  const errors = {};
+  const { academic, geographic, financial } = profile;
+
+  if (!academic.intended_education_level) errors.intended_education_level = 'Select a degree.';
+  if (!academic.field_of_study) errors.field_of_study = 'Select a field.';
+  if (!academic.score_type) errors.score_type = 'Select a score type.';
+
+  if (academic.score_type === 'CGPA' && !academic.cgpa_scale) {
+    errors.cgpa_scale = 'Select a CGPA scale.';
+  }
+
+  if (String(academic.score_value).trim() === '') {
+    errors.score_value = academic.score_type === 'Percentage' ? 'Enter your percentage.' : 'Enter your CGPA.';
+  } else {
+    const score = Number(academic.score_value);
+
+    if (Number.isNaN(score) || score < 0) {
+      errors.score_value = 'Enter a number, 0 or more.';
+    } else if (academic.score_type === 'Percentage' && score > 100) {
+      errors.score_value = 'Must be 0–100.';
+    } else if (academic.score_type === 'CGPA') {
+      const scale = getCgpaScaleNumber(academic.cgpa_scale);
+      if (scale && score > scale) errors.score_value = `Must be 0–${scale}.`;
+    }
+  }
+
+  if (!geographic.preferred_region) {
+    errors.preferred_region = 'Select a region.';
+  } else if (geographic.preferred_country.length > 0) {
+    const allowed = regionCountries[geographic.preferred_region] || [];
+
+    if (geographic.preferred_country.some((country) => !allowed.includes(country))) {
+      errors.preferred_country = 'Pick countries in this region.';
+    }
+  }
+
+  const tuitionRange = getRange(ranges, 'tuition_fee_international');
+  const livingRange = getRange(ranges, 'living_cost');
+
+  const checkAmount = (key, emptyMessage, range) => {
+    const text = String(financial[key]).trim();
+
+    if (text === '') {
+      errors[key] = emptyMessage;
+      return null;
+    }
+
+    const number = Number(text);
+
+    if (Number.isNaN(number) || number < 0) {
+      errors[key] = 'Enter a number, 0 or more.';
+      return null;
+    }
+
+    if (range && (number < range.min || number > range.max)) {
+      errors[key] = `Outside range (${formatAmount(range.min)}–${formatAmount(range.max)}).`;
+    }
+
+    return number;
+  };
+
+  const minTuition = checkAmount('min_tuition_fee', 'Enter a min fee.', tuitionRange);
+  const maxTuition = checkAmount('max_tuition_fee', 'Enter a max fee.', tuitionRange);
+  checkAmount('living_cost_tolerance', 'Enter a living cost.', livingRange);
+
+  if (minTuition !== null && maxTuition !== null && minTuition > maxTuition && !errors.max_tuition_fee) {
+    errors.max_tuition_fee = 'Max must be at least the min.';
+  }
+
+  if (!financial.scholarship_requirement) {
+    errors.scholarship_requirement = 'Choose a scholarship option.';
+  }
+
+  return errors;
+}
+
 function getSupabaseErrorMessage(results = []) {
   return results.find((result) => result?.error)?.error?.message || '';
 }
 
 const FieldLabel = memo(function FieldLabel({ label }) {
   return <Text style={styles.fieldLabel}>{label}</Text>;
+});
+
+const FieldError = memo(function FieldError({ error }) {
+  if (!error) return null;
+  return <Text style={localStyles.fieldError}>{error}</Text>;
+});
+
+const FieldHint = memo(function FieldHint({ text }) {
+  if (!text) return null;
+  return <Text style={localStyles.fieldHint}>{text}</Text>;
 });
 
 const ProfileSection = memo(function ProfileSection({ title, icon, children }) {
@@ -129,37 +251,33 @@ const ChipSelector = memo(function ChipSelector({
   options,
   value,
   onChange,
-  placeholder,
 }) {
   return (
-    <View>
-      {placeholder && !value ? (
-        <Text style={styles.placeholderHint}>{placeholder}</Text>
-      ) : null}
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.chipRow}
+      keyboardShouldPersistTaps="handled"
+    >
+      {options.map((option) => {
+        const active = value === option;
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRow}
-      >
-        {options.map((option) => {
-          const active = value === option;
-
-          return (
-            <TouchableOpacity
-              key={option}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => onChange(option)}
-              activeOpacity={0.85}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                {option}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-    </View>
+        return (
+          <TouchableOpacity
+            key={option}
+            style={[styles.chip, localStyles.chipTouch, active && styles.chipActive]}
+            onPress={() => onChange(option)}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+          >
+            <Text style={[styles.chipText, active && styles.chipTextActive]}>
+              {option}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
   );
 });
 
@@ -185,9 +303,11 @@ const OptionChipSelector = memo(function OptionChipSelector({
         return (
           <TouchableOpacity
             key={String(optionValue)}
-            style={[styles.chip, active && styles.chipActive]}
+            style={[styles.chip, localStyles.chipTouch, active && styles.chipActive]}
             onPress={() => onChange(optionValue)}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
           >
             <Text style={[styles.chipText, active && styles.chipTextActive]}>
               {optionLabel}
@@ -215,6 +335,8 @@ const GradientButton = memo(function GradientButton({
         onPress={onPress}
         disabled={disabled}
         activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !!disabled }}
       >
         {loading ? (
           <ActivityIndicator size="small" color={authTheme.colors.brandTeal} />
@@ -231,6 +353,8 @@ const GradientButton = memo(function GradientButton({
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !!disabled }}
     >
       <LinearGradient
         colors={authTheme.gradients.button}
@@ -263,7 +387,7 @@ const SortControlsMobile = memo(function SortControlsMobile({
       <View style={styles.sortSection}>
         <FieldLabel label="Sort By" />
         <OptionChipSelector
-          options={SORT_OPTIONS}
+          options={SMART_SORT_OPTIONS}
           value={sortBy}
           onChange={setSortBy}
         />
@@ -272,7 +396,7 @@ const SortControlsMobile = memo(function SortControlsMobile({
       <View style={styles.sortSection}>
         <FieldLabel label="Order" />
         <OptionChipSelector
-          options={SORT_ORDER_OPTIONS}
+          options={SMART_SORT_ORDER_OPTIONS}
           value={sortOrder}
           onChange={setSortOrder}
         />
@@ -330,6 +454,8 @@ const SortOptionsModal = memo(function SortOptionsModal({
               style={modalStyles.closeButton}
               activeOpacity={0.8}
               onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
             >
               <Text style={modalStyles.closeText}>✕</Text>
             </TouchableOpacity>
@@ -374,6 +500,15 @@ export default function ProfileMatchPanel({
   const keyboard = useKeyboardAwareScroll();
   const [userId, setUserId] = useState(null);
 
+  const {
+    ranges,
+    regions,
+    regionCountries,
+    fieldsOfStudy,
+    scholarshipOptions,
+    degreeLevels,
+  } = useProfileOptions();
+
   const [sortBy, setSortBy] = useState(DEFAULT_SORT_BY);
   const [sortOrder, setSortOrder] = useState(DEFAULT_SORT_ORDER);
   const [page, setPage] = useState(1);
@@ -388,14 +523,10 @@ export default function ProfileMatchPanel({
 
   const hasResults = Array.isArray(universities) && universities.length > 0;
 
-  const normalizedSortBy = useMemo(
-    () => sortBy || DEFAULT_SORT_BY,
-    [sortBy]
-  );
-
-  const normalizedSortOrder = useMemo(
-    () => sortOrder || DEFAULT_SORT_ORDER,
-    [sortOrder]
+  // Same local sort as the web, so the chosen order holds on every page.
+  const sortedUniversities = useMemo(
+    () => sortUniversitiesLocally(universities, sortBy, sortOrder),
+    [universities, sortBy, sortOrder]
   );
 
   const blockerLabel = useMemo(
@@ -404,6 +535,39 @@ export default function ProfileMatchPanel({
         ? String(smartNotice.main_blocker).replace(/_/g, ' ')
         : '',
     [smartNotice?.main_blocker]
+  );
+
+  const validationErrors = useMemo(
+    () => getValidationErrors(profile, ranges, regionCountries),
+    [profile, ranges, regionCountries]
+  );
+
+  const hasErrors = Object.keys(validationErrors).length > 0;
+
+  // Keep a saved value visible even if the dataset list does not have it.
+  const withCurrent = useCallback(
+    (list, current) => (current && !list.includes(current) ? [...list, current] : list),
+    []
+  );
+
+  const regionOptions = useMemo(
+    () => withCurrent(regions, profile.geographic.preferred_region),
+    [profile.geographic.preferred_region, regions, withCurrent]
+  );
+
+  const countryOptions = useMemo(
+    () => regionCountries[profile.geographic.preferred_region] || [],
+    [profile.geographic.preferred_region, regionCountries]
+  );
+
+  const fieldOptions = useMemo(
+    () => withCurrent(fieldsOfStudy, profile.academic.field_of_study),
+    [fieldsOfStudy, profile.academic.field_of_study, withCurrent]
+  );
+
+  const scholarshipChoices = useMemo(
+    () => withCurrent(scholarshipOptions, profile.financial.scholarship_requirement),
+    [profile.financial.scholarship_requirement, scholarshipOptions, withCurrent]
   );
 
   const setInfoMessage = useCallback((text) => {
@@ -454,6 +618,8 @@ export default function ProfileMatchPanel({
           .from('user_test_scores')
           .select('*')
           .eq('user_id', user.id),
+
+        supabase.from('profiles').select('country').eq('id', user.id).maybeSingle(),
       ]);
 
       const loadError = getSupabaseErrorMessage(responses);
@@ -467,25 +633,32 @@ export default function ProfileMatchPanel({
         geographicResponse,
         financialResponse,
         testsResponse,
+        accountResponse,
       ] = responses;
 
       const academic = academicResponse.data || {};
       const geographic = geographicResponse.data || {};
       const financial = financialResponse.data || {};
       const tests = testsResponse.data || [];
+      const scoreType = normalizeScoreType(academic.score_type);
 
       setProfile({
+        user: {
+          country: accountResponse.data?.country || '',
+        },
         academic: {
           intended_education_level: normalizeIntendedLevel(academic.intended_education_level),
           field_of_study: academic.field_of_study || '',
-          score_type: academic.score_type || 'CGPA',
+          score_type: scoreType,
           score_value: normalizeValue(academic.score_value),
+          cgpa_scale: scoreType === 'CGPA' ? academic.cgpa_scale || '' : '',
         },
         geographic: {
           preferred_region: geographic.preferred_region || '',
-          preferred_country: geographic.preferred_country || '',
+          preferred_country: splitCountries(geographic.preferred_country),
         },
         financial: {
+          min_tuition_fee: normalizeValue(financial.min_tuition_fee),
           max_tuition_fee: normalizeValue(financial.max_tuition_fee),
           living_cost_tolerance: normalizeValue(
             financial.living_cost_tolerance
@@ -518,23 +691,28 @@ export default function ProfileMatchPanel({
   }, [hasResults]);
 
   const updateAcademic = useCallback((key, value) => {
-    setProfile((prev) => ({
-      ...prev,
-      academic: {
-        ...prev.academic,
-        [key]: value,
-      },
-    }));
+    setProfile((prev) => {
+      const nextAcademic = { ...prev.academic, [key]: value };
+
+      if (key === 'score_type' && value !== 'CGPA') {
+        nextAcademic.cgpa_scale = '';
+      }
+
+      return { ...prev, academic: nextAcademic };
+    });
   }, []);
 
   const updateGeographic = useCallback((key, value) => {
-    setProfile((prev) => ({
-      ...prev,
-      geographic: {
-        ...prev.geographic,
-        [key]: value,
-      },
-    }));
+    setProfile((prev) => {
+      const nextGeographic = { ...prev.geographic, [key]: value };
+
+      // Countries must belong to the chosen region.
+      if (key === 'preferred_region' && value !== prev.geographic.preferred_region) {
+        nextGeographic.preferred_country = [];
+      }
+
+      return { ...prev, geographic: nextGeographic };
+    });
   }, []);
 
   const updateFinancial = useCallback((key, value) => {
@@ -547,43 +725,34 @@ export default function ProfileMatchPanel({
     }));
   }, []);
 
-  const validateProfile = useCallback(() => {
-    if (!profile.academic.intended_education_level) {
-      return 'Please select intended degree.';
-    }
-
-    if (!profile.academic.field_of_study.trim()) {
-      return 'Please enter field of study.';
-    }
-
-    if (!profile.academic.score_value) {
-      return 'Please enter CGPA / score.';
-    }
-
-    if (!profile.geographic.preferred_region) {
-      return 'Please select region.';
-    }
-
-    return '';
-  }, [profile]);
+  const firstError = useCallback(() => {
+    const field = FIELD_ORDER.find((key) => validationErrors[key]);
+    return field ? validationErrors[field] : '';
+  }, [validationErrors]);
 
   const buildPayload = useCallback(
     () => ({
+      user: {
+        country: profile.user?.country || '',
+      },
       academic: {
         intended_education_level:
           profile.academic.intended_education_level,
-        field_of_study: profile.academic.field_of_study.trim(),
+        field_of_study: profile.academic.field_of_study,
         score_type: profile.academic.score_type || 'CGPA',
         score_value: toNumberOrEmpty(profile.academic.score_value),
+        cgpa_scale:
+          profile.academic.score_type === 'CGPA'
+            ? profile.academic.cgpa_scale
+            : null,
       },
       geographic: {
         preferred_region: profile.geographic.preferred_region,
-        preferred_country: profile.geographic.preferred_country.trim(),
+        preferred_country: profile.geographic.preferred_country.join(', '),
       },
       financial: {
-        max_tuition_fee: toNumberOrEmpty(
-          profile.financial.max_tuition_fee
-        ),
+        min_tuition_fee: toNumberOrEmpty(profile.financial.min_tuition_fee),
+        max_tuition_fee: toNumberOrEmpty(profile.financial.max_tuition_fee),
         living_cost_tolerance: toNumberOrEmpty(
           profile.financial.living_cost_tolerance
         ),
@@ -599,11 +768,11 @@ export default function ProfileMatchPanel({
     (extraIgnored = [], preserveIgnored = false) => {
       setMessage('');
 
-      const error = validateProfile();
+      const error = firstError();
 
       if (error) {
         setErrorMessage(error);
-        return;
+        return false;
       }
 
       setPage(1);
@@ -612,31 +781,34 @@ export default function ProfileMatchPanel({
         temporaryProfile: buildPayload(),
         extraIgnored,
         preserveIgnored,
-        sortBy: normalizedSortBy,
-        sortOrder: normalizedSortOrder,
+        sortBy,
+        sortOrder,
         topN: DEFAULT_TOP_N,
       });
+
+      return true;
     },
     [
       buildPayload,
       fetchSmartMatch,
-      normalizedSortBy,
-      normalizedSortOrder,
+      firstError,
       setErrorMessage,
-      validateProfile,
+      sortBy,
+      sortOrder,
     ]
   );
 
   const useTemporarily = useCallback(() => {
-    runProfileMatch([]);
-    setInfoMessage('Showing results for these changes only. Your saved profile was not changed.');
+    if (runProfileMatch([])) {
+      setInfoMessage('Showing results for these changes only. Your saved profile was not changed.');
+    }
   }, [runProfileMatch, setInfoMessage]);
 
   const saveAndUseProfile = useCallback(async () => {
     try {
       setMessage('');
 
-      const error = validateProfile();
+      const error = firstError();
 
       if (error) {
         setErrorMessage(error);
@@ -659,6 +831,7 @@ export default function ProfileMatchPanel({
             field_of_study: payload.academic.field_of_study,
             score_type: payload.academic.score_type,
             score_value: payload.academic.score_value,
+            cgpa_scale: payload.academic.cgpa_scale,
           },
           { onConflict: 'user_id' }
         ),
@@ -675,6 +848,7 @@ export default function ProfileMatchPanel({
         supabase.from('financial_preferences').upsert(
           {
             user_id: userId,
+            min_tuition_fee: payload.financial.min_tuition_fee,
             max_tuition_fee: payload.financial.max_tuition_fee,
             living_cost_tolerance:
               payload.financial.living_cost_tolerance,
@@ -692,25 +866,30 @@ export default function ProfileMatchPanel({
         return;
       }
 
-      runProfileMatch([]);
-      setInfoMessage('Profile saved. Your Smart Match results have been updated.');
+      if (runProfileMatch([])) {
+        setInfoMessage('Profile saved. Your Smart Match results have been updated.');
+      }
     } catch (error) {
       console.error('Save profile error:', error);
       setErrorMessage('Could not save profile.');
     }
   }, [
     buildPayload,
+    firstError,
     runProfileMatch,
     setErrorMessage,
     setInfoMessage,
     userId,
-    validateProfile,
   ]);
 
   const handleApplySort = useCallback(() => {
     setShowSortOptions(false);
-    runProfileMatch([], true);
-  }, [runProfileMatch]);
+    setPage(1);
+
+    // Results already on screen are re-sorted locally; the backend is asked
+    // again only when the form is valid (same as the web).
+    if (!hasErrors) runProfileMatch([], true);
+  }, [hasErrors, runProfileMatch]);
 
   const openSortModal = useCallback(() => {
     setShowSortOptions(true);
@@ -726,8 +905,15 @@ export default function ProfileMatchPanel({
     }
   }, [runProfileMatch, smartNotice?.main_blocker]);
 
-  const scholarshipValue =
-    profile.financial.scholarship_requirement || 'No preference';
+  const isPercentage = profile.academic.score_type === 'Percentage';
+  const cgpaScaleNumber = getCgpaScaleNumber(profile.academic.cgpa_scale);
+  const scoreHint = isPercentage
+    ? 'Range: 0–100'
+    : cgpaScaleNumber
+      ? `Range: 0–${cgpaScaleNumber}`
+      : '';
+  const tuitionHint = rangeHint(ranges, 'tuition_fee_international');
+  const livingHint = rangeHint(ranges, 'living_cost');
 
   if (profileLoading) {
     return (
@@ -783,24 +969,24 @@ export default function ProfileMatchPanel({
           <ProfileSection title="Academic" icon="🎓">
             <FieldLabel label="Intended Degree" />
             <ChipSelector
-              options={DEGREE_OPTIONS}
+              options={degreeLevels}
               value={profile.academic.intended_education_level}
-              placeholder="Select degree"
               onChange={(value) =>
                 updateAcademic('intended_education_level', value)
               }
             />
+            <FieldError error={validationErrors.intended_education_level} />
 
             <FieldLabel label="Field of Study" />
-            <TextInput
-              style={styles.input}
+            <SelectField
+              title="Field of Study"
+              placeholder="Select field"
               value={profile.academic.field_of_study}
-              onChangeText={(value) =>
-                updateAcademic('field_of_study', value)
-              }
-              placeholder="Computer Science"
-              placeholderTextColor="#94a3b8"
+              options={fieldOptions}
+              invalid={!!validationErrors.field_of_study}
+              onChange={(value) => updateAcademic('field_of_study', value)}
             />
+            <FieldError error={validationErrors.field_of_study} />
 
             <FieldLabel label="Score Type" />
             <ChipSelector
@@ -808,47 +994,78 @@ export default function ProfileMatchPanel({
               value={profile.academic.score_type}
               onChange={(value) => updateAcademic('score_type', value)}
             />
+            <FieldError error={validationErrors.score_type} />
 
-            <FieldLabel label="Score / CGPA" />
+            {profile.academic.score_type === 'CGPA' ? (
+              <>
+                <FieldLabel label="CGPA Scale" />
+                <ChipSelector
+                  options={CGPA_SCALE_OPTIONS}
+                  value={profile.academic.cgpa_scale}
+                  onChange={(value) => updateAcademic('cgpa_scale', value)}
+                />
+                <FieldError error={validationErrors.cgpa_scale} />
+              </>
+            ) : null}
+
+            <FieldLabel label={isPercentage ? 'Percentage' : 'CGPA'} />
             <TextInput
-              style={styles.input}
+              style={[styles.input, localStyles.inputTight, validationErrors.score_value && localStyles.inputInvalid]}
               value={String(profile.academic.score_value)}
               onChangeText={(value) =>
                 updateAcademic('score_value', value)
               }
-              placeholder="3.46"
+              placeholder={isPercentage ? '85' : '3.46'}
               placeholderTextColor="#94a3b8"
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
             />
+            <FieldHint text={scoreHint} />
+            <FieldError error={validationErrors.score_value} />
           </ProfileSection>
 
           <ProfileSection title="Location" icon="🌍">
             <FieldLabel label="Preferred Region" />
             <ChipSelector
-              options={REGION_OPTIONS}
+              options={regionOptions}
               value={profile.geographic.preferred_region}
-              placeholder="Select region"
               onChange={(value) =>
                 updateGeographic('preferred_region', value)
               }
             />
+            <FieldError error={validationErrors.preferred_region} />
 
-            <FieldLabel label="Preferred Country (optional)" />
-            <TextInput
-              style={styles.input}
+            <FieldLabel label="Preferred Countries (optional)" />
+            <SelectField
+              multiple
+              title="Countries"
+              placeholder={profile.geographic.preferred_region ? 'Any country in region' : 'Select region first'}
               value={profile.geographic.preferred_country}
-              onChangeText={(value) =>
-                updateGeographic('preferred_country', value)
-              }
-              placeholder="United Kingdom"
-              placeholderTextColor="#94a3b8"
+              options={countryOptions}
+              disabled={!profile.geographic.preferred_region}
+              invalid={!!validationErrors.preferred_country}
+              onChange={(value) => updateGeographic('preferred_country', value)}
             />
+            <FieldError error={validationErrors.preferred_country} />
           </ProfileSection>
 
           <ProfileSection title="Financial" icon="💳">
-            <FieldLabel label="Max Tuition Fee" />
+            <FieldLabel label="Min Tuition Fee (USD/year)" />
             <TextInput
-              style={styles.input}
+              style={[styles.input, localStyles.inputTight, validationErrors.min_tuition_fee && localStyles.inputInvalid]}
+              value={String(profile.financial.min_tuition_fee)}
+              onChangeText={(value) =>
+                updateFinancial('min_tuition_fee', value)
+              }
+              placeholder="0"
+              placeholderTextColor="#94a3b8"
+              keyboardType="numeric"
+            />
+            <FieldHint text={tuitionHint} />
+            <FieldError error={validationErrors.min_tuition_fee} />
+
+            <FieldLabel label="Max Tuition Fee (USD/year)" />
+            <TextInput
+              style={[styles.input, localStyles.inputTight, validationErrors.max_tuition_fee && localStyles.inputInvalid]}
               value={String(profile.financial.max_tuition_fee)}
               onChangeText={(value) =>
                 updateFinancial('max_tuition_fee', value)
@@ -857,10 +1074,12 @@ export default function ProfileMatchPanel({
               placeholderTextColor="#94a3b8"
               keyboardType="numeric"
             />
+            <FieldHint text={tuitionHint} />
+            <FieldError error={validationErrors.max_tuition_fee} />
 
             <FieldLabel label="Max Living Cost (USD/year)" />
             <TextInput
-              style={styles.input}
+              style={[styles.input, localStyles.inputTight, validationErrors.living_cost_tolerance && localStyles.inputInvalid]}
               value={String(profile.financial.living_cost_tolerance)}
               onChangeText={(value) =>
                 updateFinancial('living_cost_tolerance', value)
@@ -869,32 +1088,36 @@ export default function ProfileMatchPanel({
               placeholderTextColor="#94a3b8"
               keyboardType="numeric"
             />
+            <FieldHint text={livingHint} />
+            <FieldError error={validationErrors.living_cost_tolerance} />
 
-            <FieldLabel label="Scholarship Requirement" />
+            <FieldLabel label="Scholarship" />
             <ChipSelector
-              options={['No preference', ...SCHOLARSHIP_OPTIONS]}
-              value={scholarshipValue}
+              options={scholarshipChoices}
+              value={profile.financial.scholarship_requirement}
               onChange={(value) =>
-                updateFinancial(
-                  'scholarship_requirement',
-                  value === 'No preference' ? '' : value
-                )
+                updateFinancial('scholarship_requirement', value)
               }
             />
+            <FieldError error={validationErrors.scholarship_requirement} />
           </ProfileSection>
+
+          {hasErrors ? (
+            <Text style={localStyles.blockedText}>Fix the fields in red to continue.</Text>
+          ) : null}
 
           <View style={styles.actionRow}>
             <GradientButton
               label="Save & Use"
               loading={loading}
-              disabled={loading}
+              disabled={loading || hasErrors}
               onPress={saveAndUseProfile}
             />
 
             <GradientButton
               label="Use Temporarily"
               loading={loading}
-              disabled={loading}
+              disabled={loading || hasErrors}
               onPress={useTemporarily}
               variant="secondary"
             />
@@ -909,7 +1132,7 @@ export default function ProfileMatchPanel({
               <GradientButton
                 label={`Show without ${blockerLabel}`}
                 loading={loading}
-                disabled={loading}
+                disabled={loading || hasErrors}
                 onPress={handleIgnoreBlocker}
               />
             ) : null}
@@ -926,6 +1149,8 @@ export default function ProfileMatchPanel({
                 activeOpacity={0.85}
                 onPress={openSortModal}
                 disabled={loading}
+                accessibilityRole="button"
+                accessibilityLabel="Sort results"
               >
                 <Text style={modalStyles.sortIconText}>⇅</Text>
               </TouchableOpacity>
@@ -937,7 +1162,7 @@ export default function ProfileMatchPanel({
               title=""
               description=""
               dataset={datasetKey}
-              universities={universities}
+              universities={sortedUniversities}
               loading={loading}
               activeTab="smart"
               page={page}
@@ -968,6 +1193,46 @@ export default function ProfileMatchPanel({
     </>
   );
 }
+
+const localStyles = StyleSheet.create({
+  chipTouch: {
+    minHeight: 40,
+  },
+
+  inputTight: {
+    marginBottom: 4,
+  },
+
+  inputInvalid: {
+    borderColor: '#FCA5A5',
+  },
+
+  fieldHint: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '700',
+    color: authTheme.colors.brandMuted,
+    marginBottom: 4,
+  },
+
+  fieldError: {
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '800',
+    color: '#B91C1C',
+    marginTop: 2,
+    marginBottom: 8,
+  },
+
+  blockedText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '800',
+    color: '#B91C1C',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+});
 
 const modalStyles = StyleSheet.create({
   overlay: {
@@ -1022,8 +1287,8 @@ const modalStyles = StyleSheet.create({
   },
 
   closeButton: {
-    width: 34,
-    height: 34,
+    width: 40,
+    height: 40,
     borderRadius: 14,
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
@@ -1048,8 +1313,8 @@ const modalStyles = StyleSheet.create({
   },
 
   sortIconButton: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     borderRadius: 14,
     backgroundColor: '#ECFDF5',
     borderWidth: 1,

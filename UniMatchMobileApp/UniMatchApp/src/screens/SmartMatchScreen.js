@@ -352,6 +352,24 @@ export default function SmartMatchScreen({ route = {}, navigation }) {
     ]
   );
 
+  // Profile Match runs by itself with the saved profile when the screen opens
+  // on that tab (web RankingPage), once per dataset. Nothing is saved.
+  const autoRunDatasetRef = useRef('');
+
+  useEffect(() => {
+    if (
+      activeSubTab !== PROFILE_TAB ||
+      profileLoading ||
+      profileResults.length > 0 ||
+      autoRunDatasetRef.current === datasetKey
+    ) {
+      return;
+    }
+
+    autoRunDatasetRef.current = datasetKey;
+    fetchSmartMatch();
+  }, [activeSubTab, datasetKey, fetchSmartMatch, profileLoading, profileResults.length]);
+
   const buildCustomExplorePayload = useCallback(
     ({ filters, sortBy, sortOrder, topN }) => ({
       filters,

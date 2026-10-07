@@ -14,7 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../../components/AppText';
 
 import ResearcherLayout from '../../components/researcher/ResearcherLayout';
-import UniversityLink from '../../components/UniversityLink';
+import UniversityLink, { useOpenUniversity } from '../../components/UniversityLink';
+import UniversityResultRow from '../../components/researcher/UniversityResultRow';
 import {
   Card,
   DatasetYearBar,
@@ -30,6 +31,7 @@ import {
   useDebouncedValue,
   useLatestRequest,
 } from '../../components/researcher/ResearcherUI';
+import { pageGuide } from '../../components/researcher/pageGuides';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { authTheme } from '../../styles/authTheme';
 import {
@@ -157,6 +159,12 @@ export default function ResearcherCompareScreen({ navigation, route }) {
   const [suggestions, setSuggestions] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [selected, setSelected] = useState([]);
+  // Picks that could not be carried over to this edition (names).
+  const [notFound, setNotFound] = useState([]);
+  const [rematching, setRematching] = useState(false);
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  const editionRef = useRef(null);
 
   const [personalizedResults, setPersonalizedResults] = useState([]);
   const [personalizedLoading, setPersonalizedLoading] = useState(false);
@@ -167,12 +175,52 @@ export default function ResearcherCompareScreen({ navigation, route }) {
   const startMetaRequest = useLatestRequest();
   const startPersonalizedRequest = useLatestRequest();
   const startSearchRequest = useLatestRequest();
+  const startRematchRequest = useLatestRequest();
+  const openUniversity = useOpenUniversity();
 
   // Dataset metadata + ranks under the official weights.
   useEffect(() => {
     const isCurrent = startMetaRequest();
-    setSelected(savedPicks[picksKey(datasetKey, year)] || []);
+    const key = picksKey(datasetKey, year);
+    // Switching dataset/edition carries the current picks over (looked up by
+    // name in the new edition); otherwise the picks kept for it come back.
+    const previous = editionRef.current && editionRef.current !== key ? selectedRef.current : [];
+    editionRef.current = key;
+    setNotFound([]);
+    if (previous.length) rematchSelected(previous);
+    else {
+      startRematchRequest();
+      setRematching(false);
+      setSelected(savedPicks[key] || []);
+    }
     setQuery('');
+
+    async function rematchSelected(list) {
+      const isCurrentRematch = startRematchRequest();
+      setSelected([]);
+      setRematching(true);
+
+      const matches = await Promise.all(
+        list.map(async (item) => {
+          try {
+            const data = await fetchResearcherDataset(datasetKey, { year, search: item.name, page: 1, page_size: 8 });
+            const wanted = normalName(item.name);
+            return (data.results || []).find((row) => normalName(row.name) === wanted) || null;
+          } catch {
+            return null;
+          }
+        })
+      );
+      if (!isCurrentRematch()) return;
+
+      const found = [];
+      matches.forEach((row) => {
+        if (row && !found.some((item) => item.university_id === row.university_id)) found.push(row);
+      });
+      setSelected(found.slice(0, MAX_SELECTED));
+      setNotFound(list.filter((_, index) => !matches[index]).map((item) => item.name));
+      setRematching(false);
+    }
 
     async function loadMeta() {
       setLoadingMeta(true);
@@ -214,7 +262,7 @@ export default function ResearcherCompareScreen({ navigation, route }) {
     }
 
     loadMeta();
-  }, [datasetKey, year, reloadKey, startMetaRequest, startPersonalizedRequest]);
+  }, [datasetKey, year, reloadKey, startMetaRequest, startPersonalizedRequest, startRematchRequest]);
 
   useEffect(() => {
     savedPicks[picksKey(datasetKey, year)] = selected;
@@ -375,6 +423,7 @@ export default function ResearcherCompareScreen({ navigation, route }) {
       <PageHeader
         title="Compare Universities"
         subtitle={`Up to ${MAX_SELECTED}, side by side`}
+        guide={pageGuide('compare', { dataset: datasetKey })}
       />
 
       <DatasetYearBar
@@ -392,7 +441,7 @@ export default function ResearcherCompareScreen({ navigation, route }) {
         <SearchInput
           value={query}
           onChangeText={setQuery}
-          editable={selected.length < MAX_SELECTED && !loadingMeta}
+          editable={selected.length < MAX_SELECTED && !loadingMeta && !rematching}
           placeholder={
             selected.length >= MAX_SELECTED ? `Maximum ${MAX_SELECTED} universities selected` : 'Search university...'
           }
@@ -406,20 +455,20 @@ export default function ResearcherCompareScreen({ navigation, route }) {
               <Text style={[styles.mutedText, { padding: 12 }]}>No university found.</Text>
             ) : (
               filteredSuggestions.map((row) => (
-                <TouchableOpacity
+                <UniversityResultRow
                   key={row.university_id}
-                  style={styles.suggestionRow}
-                  activeOpacity={0.8}
-                  onPress={() => addUniversity(row)}
-                >
-                  <View style={styles.flex1}>
-                    <Text style={styles.suggestionName} numberOfLines={2}>
-                      {row.name}
-                    </Text>
-                    {!!row.country && <Text style={styles.suggestionSub}>{row.country}</Text>}
-                  </View>
-                  <Text style={styles.suggestionMeta}>#{row.official_rank}</Text>
-                </TouchableOpacity>
+                  name={row.name}
+                  country={row.country}
+                  meta={row.official_rank ? `#${row.official_rank}` : ''}
+                  primary="compare"
+                  onOpen={() =>
+                    openUniversity({ name: row.name, country: row.country, dataset: datasetKey, rank: row.official_rank })
+                  }
+                  onCompare={() => addUniversity(row)}
+                  onJourney={() =>
+                    navigation.navigate(RESEARCHER_ROUTES.journey, { university: { name: row.name, country: row.country } }, { pop: true })
+                  }
+                />
               ))
             )}
           </View>
@@ -457,6 +506,14 @@ export default function ResearcherCompareScreen({ navigation, route }) {
             ))}
           </View>
         )}
+        {rematching && <InlineLoader style={{ paddingVertical: 4 }} />}
+        {notFound.length > 0 && (
+          <View style={[styles.warningBox, { marginTop: 6, marginBottom: 0 }]}>
+            <Text style={styles.warningText}>
+              Not in {RESEARCHER_DATASETS[datasetKey].shortName} {year}, left out: {notFound.join(', ')}
+            </Text>
+          </View>
+        )}
       </Card>
 
       <ErrorBox message={error} onRetry={() => setReloadKey((value) => value + 1)} />
@@ -465,7 +522,7 @@ export default function ResearcherCompareScreen({ navigation, route }) {
         <Card>
           <LoadingBlock />
         </Card>
-      ) : selected.length < 2 ? (
+      ) : rematching ? null : selected.length < 2 ? (
         <Card>
           <EmptyState text="Add at least 2 universities to compare." />
         </Card>

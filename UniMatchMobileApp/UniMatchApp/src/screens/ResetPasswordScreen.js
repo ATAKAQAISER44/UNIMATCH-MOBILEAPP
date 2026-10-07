@@ -1,7 +1,7 @@
 
 // src/screens/ResetPasswordScreen.js
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
@@ -19,40 +19,27 @@ import { AlertBox } from '../components';
 import { authTheme } from '../styles/authTheme';
 import { resetPasswordStyles as styles } from '../styles/resetPasswordStyles';
 import useKeyboardAwareScroll from '../utils/useKeyboardAwareScroll';
+import {
+  friendlyAuthError,
+  isSessionMissingError,
+  validateNewPassword,
+} from '../utils/authValidation';
 
 const logo = require('../../assets/images/icon.png');
 // const logo = require('../assets/images/icon.png');
 
-const PASSWORD_RULES = {
-  minLength: 8,
-  letter: /[A-Za-z]/,
-  number: /[0-9]/,
-  specialCharacter: /[^A-Za-z0-9]/,
-};
+const SUCCESS_DELAY_MS = 1500;
 
 function validatePassword(password, confirmPassword) {
   if (!password || !confirmPassword) {
     return 'Please enter and confirm your new password.';
   }
 
-  if (password.length < PASSWORD_RULES.minLength) {
-    return 'Password must be at least 8 characters long.';
-  }
-
-  if (!PASSWORD_RULES.letter.test(password)) {
-    return 'Password must include at least one letter.';
-  }
-
-  if (!PASSWORD_RULES.number.test(password)) {
-    return 'Password must include at least one number.';
-  }
-
-  if (!PASSWORD_RULES.specialCharacter.test(password)) {
-    return 'Password must include at least one special character.';
-  }
+  const passwordError = validateNewPassword(password);
+  if (passwordError) return passwordError;
 
   if (password !== confirmPassword) {
-    return 'New password and confirm password do not match.';
+    return 'Passwords do not match.';
   }
 
   return '';
@@ -129,6 +116,33 @@ export default function ResetPasswordScreen({ navigation }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  // false when there is no recovery session (the code was never verified
+  // or it expired); null while checking.
+  const [hasSession, setHasSession] = useState(null);
+  const redirectTimer = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (active) setHasSession(Boolean(data?.session));
+      })
+      .catch(() => {
+        if (active) setHasSession(false);
+      });
+
+    return () => {
+      active = false;
+      if (redirectTimer.current) clearTimeout(redirectTimer.current);
+    };
+  }, []);
+
+  const goToForgotPassword = () => {
+    navigation.replace('ForgotPassword');
+  };
 
   const handleBack = () => {
     if (navigation?.canGoBack?.()) {
@@ -172,26 +186,36 @@ export default function ResetPasswordScreen({ navigation }) {
       });
 
       if (updateError) {
-        setError(
-          updateError.message || 'Could not update password. Please try again.'
-        );
+        if (isSessionMissingError(updateError)) {
+          setHasSession(false);
+          return;
+        }
+        setError(friendlyAuthError(updateError, 'Could not update password. Please try again.'));
         return;
       }
 
-      await supabase.auth.signOut();
+      setSuccess('Password updated. Log in with your new password.');
 
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-      });
+      redirectTimer.current = setTimeout(async () => {
+        try {
+          await supabase.auth.signOut();
+        } catch (signOutError) {
+          // The password is already changed; Login still works.
+        }
+
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
+      }, SUCCESS_DELAY_MS);
     } catch (err) {
-      setError(
-        'Something went wrong. Please check your internet connection and try again.'
-      );
+      setError(friendlyAuthError(err));
     } finally {
       setLoading(false);
     }
   };
+
+  const isLocked = loading || !!success;
 
   return (
     <LinearGradient
@@ -218,74 +242,115 @@ export default function ResetPasswordScreen({ navigation }) {
             </View>
           )}
 
-          <View style={styles.form}>
-            <PasswordField
-              label="New Password"
-              value={password}
-              onChangeText={handlePasswordChange}
-              placeholder="Enter new password"
-              visible={showPassword}
-              editable={!loading}
-              returnKeyType="next"
-              onToggleVisibility={() =>
-                setShowPassword((previousValue) => !previousValue)
-              }
-            />
+          {!!success && (
+            <View style={styles.alertWrap}>
+              <AlertBox message={success} type="success" />
+            </View>
+          )}
 
-            <PasswordField
-              label="Confirm Password"
-              value={confirmPassword}
-              onChangeText={handleConfirmPasswordChange}
-              placeholder="Confirm new password"
-              visible={showConfirmPassword}
-              editable={!loading}
-              returnKeyType="done"
-              onSubmitEditing={handleUpdatePassword}
-              onToggleVisibility={() =>
-                setShowConfirmPassword((previousValue) => !previousValue)
-              }
-            />
+          {hasSession === false && !success ? (
+            <View style={styles.form}>
+              <View style={styles.alertWrap}>
+                <AlertBox
+                  message="Your reset code has expired. Please request a new one."
+                  type="error"
+                />
+              </View>
 
-            <Text style={styles.passwordHint}>
-              8+ characters with a letter, number and symbol.
-            </Text>
-
-            <TouchableOpacity
-              style={[
-                styles.mainButtonOuter,
-                loading && styles.mainButtonDisabled,
-              ]}
-              onPress={handleUpdatePassword}
-              activeOpacity={0.88}
-              disabled={loading}
-            >
-              <LinearGradient
-                colors={authTheme.gradients.button}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={styles.mainButton}
+              <TouchableOpacity
+                style={styles.mainButtonOuter}
+                onPress={goToForgotPassword}
+                activeOpacity={0.88}
               >
-                {loading ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={authTheme.colors.white}
-                  />
-                ) : (
-                  <Text style={styles.mainButtonText}>Update Password</Text>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+                <LinearGradient
+                  colors={authTheme.gradients.button}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.mainButton}
+                >
+                  <Text style={styles.mainButtonText}>Request a new code</Text>
+                </LinearGradient>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.backRow}
-              onPress={handleBack}
-              activeOpacity={0.75}
-              disabled={loading}
-            >
-              <Text style={styles.backMutedText}>Back to </Text>
-              <Text style={styles.backText}>Login</Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={styles.backRow}
+                onPress={handleBack}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.backMutedText}>Back to </Text>
+                <Text style={styles.backText}>Login</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.form}>
+              <PasswordField
+                label="New Password"
+                value={password}
+                onChangeText={handlePasswordChange}
+                placeholder="Enter new password"
+                visible={showPassword}
+                editable={!isLocked}
+                returnKeyType="next"
+                onToggleVisibility={() =>
+                  setShowPassword((previousValue) => !previousValue)
+                }
+              />
+
+              <PasswordField
+                label="Confirm Password"
+                value={confirmPassword}
+                onChangeText={handleConfirmPasswordChange}
+                placeholder="Confirm new password"
+                visible={showConfirmPassword}
+                editable={!isLocked}
+                returnKeyType="done"
+                onSubmitEditing={handleUpdatePassword}
+                onToggleVisibility={() =>
+                  setShowConfirmPassword((previousValue) => !previousValue)
+                }
+              />
+
+              <Text style={styles.passwordHint}>
+                8+ characters with a letter, number and symbol.
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.mainButtonOuter,
+                  isLocked && styles.mainButtonDisabled,
+                ]}
+                onPress={handleUpdatePassword}
+                activeOpacity={0.88}
+                disabled={isLocked}
+              >
+                <LinearGradient
+                  colors={authTheme.gradients.button}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.mainButton}
+                >
+                  {loading ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={authTheme.colors.white}
+                    />
+                  ) : (
+                    <Text style={styles.mainButtonText}>Update Password</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.backRow}
+                onPress={handleBack}
+                activeOpacity={0.75}
+                disabled={loading}
+              >
+                <Text style={styles.backMutedText}>Back to </Text>
+                <Text style={styles.backText}>Login</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </ScrollView>
     </LinearGradient>

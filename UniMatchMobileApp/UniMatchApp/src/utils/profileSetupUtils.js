@@ -9,16 +9,30 @@ export function sortOptionsAlphabetically(options = []) {
   );
 }
 
+// Keeps a typed number usable: a comma becomes a dot ("3,5" -> "3.5"), only
+// the first dot is kept and any other stray character is dropped (the rest
+// of the field stays). A minus sign is dropped too, so it is never negative.
 export function sanitizeNonNegative(value) {
-  if (value === '') return '';
+  if (value === '' || value === null || value === undefined) return '';
 
-  const cleanedValue = String(value).replace(/[^0-9.]/g, '');
-  const numericValue = Number(cleanedValue);
+  const cleaned = String(value).replace(/,/g, '.').replace(/[^0-9.]/g, '');
+  const firstDot = cleaned.indexOf('.');
 
-  if (Number.isNaN(numericValue)) return '';
-  if (numericValue < 0) return '0';
+  if (firstDot === -1) return cleaned;
 
-  return cleanedValue;
+  return (
+    cleaned.slice(0, firstDot + 1) +
+    cleaned.slice(firstDot + 1).replace(/\./g, '')
+  );
+}
+
+// "Germany, France" (how the web saves several countries) -> ['Germany', 'France'].
+export function parseCountryList(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 export function normalizeEducationLevel(level) {

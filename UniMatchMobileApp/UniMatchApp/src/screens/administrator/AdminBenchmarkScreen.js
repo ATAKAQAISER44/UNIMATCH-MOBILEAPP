@@ -5,7 +5,7 @@
 // aspirational, or up to 5 of the administrator's choice) on the ranking
 // indicators and the attributes, plus the gap to a target rank.
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { TouchableOpacity, View } from 'react-native';
 
 import { Text } from '../../components/AppText';
@@ -17,7 +17,7 @@ import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { authTheme } from '../../styles/authTheme';
 import { officialMetricLabel } from '../../constants/researcherConstants';
 import { STATUS_STYLE } from '../../constants/roleConstants';
-import { useAdminInstitution, useBenchmark } from '../../services/adminApi';
+import { useAdminInstitution, useBenchmark, useInstitutionPerformance } from '../../services/adminApi';
 
 const MAX_CUSTOM = 5;
 const GROUPS = [
@@ -60,6 +60,17 @@ function GroupChooser({ value, onChange }) {
   );
 }
 
+// Checks a typed target rank. Returns { rank } or { message }.
+export function checkTargetRank(text, currentRank, total) {
+  const value = Number(text);
+  if (!String(text ?? '').trim()) return { message: 'Enter a target rank.' };
+  if (!Number.isInteger(value) || value < 1) return { message: 'Use a whole number from 1.' };
+  if (total && value > total) return { message: `Use 1 to ${total} (${total} universities ranked).` };
+  if (currentRank && value === currentRank) return { message: `You are already #${currentRank}.` };
+  if (currentRank && value > currentRank) return { message: `Already ranked higher than #${value} (you are #${currentRank}).` };
+  return { rank: value };
+}
+
 function columnHead({ university, you }) {
   return {
     node: (
@@ -74,12 +85,23 @@ function columnHead({ university, you }) {
 }
 
 export default function AdminBenchmarkScreen({ navigation, route }) {
-  const [dataset, setDataset] = useRankingParam(route, navigation);
   const [institution] = useAdminInstitution();
   const [group, setGroup] = useState('similar');
   const [custom, setCustom] = useState([]);
   const [targetInput, setTargetInput] = useState('');
   const [target, setTarget] = useState(null);
+  const [targetMessage, setTargetMessage] = useState('');
+  // A target belongs to one ranking; clear it when the ranking changes.
+  const clearTarget = useCallback(() => {
+    setTarget(null);
+    setTargetMessage('');
+  }, []);
+  const [dataset, setDataset] = useRankingParam(route, navigation, clearTarget);
+  // Current numeric rank and how many are ranked (cached with Performance).
+  const performance = useInstitutionPerformance(institution?.key);
+  const perf = performance.data?.rankings?.[dataset];
+  const totalRanked = perf?.total_ranked;
+  const currentRank = perf?.rank;
 
   // The first answer carries the suggested groups (and uses the similar-rank
   // one); another group sends its keys. An empty list falls back to similar rank.
@@ -200,18 +222,32 @@ export default function AdminBenchmarkScreen({ navigation, route }) {
               <SectionHeading title="Gap to a target rank" />
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
                 <NumberField
-                  label="Target rank"
+                  label={totalRanked ? `Target rank (1-${totalRanked})` : 'Target rank'}
                   value={targetInput}
-                  onChangeText={setTargetInput}
-                  placeholder="e.g. 300"
-                  style={{ flexGrow: 1, flexBasis: 120, maxWidth: 200 }}
+                  onChangeText={(text) => {
+                    setTargetInput(text);
+                    setTargetMessage('');
+                  }}
+                  placeholder={currentRank > 1 ? `e.g. ${Math.max(1, Math.round(currentRank / 2))}` : 'e.g. 300'}
+                  integer
+                  error={!!targetMessage}
+                  style={{ flexGrow: 1, flexBasis: 120, maxWidth: 220 }}
                 />
                 <GradientButton
                   title="Show gap"
-                  onPress={() => setTarget(Number(targetInput) > 0 ? Math.round(Number(targetInput)) : null)}
+                  onPress={() => {
+                    const checked = checkTargetRank(targetInput, currentRank, totalRanked);
+                    setTargetMessage(checked.message || '');
+                    setTarget(checked.rank ?? null);
+                  }}
                 />
               </View>
-              {data.target && (
+              {targetMessage ? (
+                <Text style={[styles.errorText, { marginTop: 6 }]}>{targetMessage}</Text>
+              ) : (
+                !!currentRank && <Text style={[styles.noteText, { marginTop: 6 }]}>You are #{currentRank} in {dataset.toUpperCase()}.</Text>
+              )}
+              {data.target && !!target && (
                 <>
                   <Text style={[styles.noteText, { marginTop: 10 }]}>
                     Median of the {data.target.compared_with} universities within 10% of #{data.target.rank}. A positive gap is

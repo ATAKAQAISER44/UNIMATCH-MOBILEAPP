@@ -9,9 +9,7 @@
 //               and opens the Weights tab.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View,
-} from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
 import { Text, TextInput } from '../../components/AppText';
 import { useFocusEffect } from '@react-navigation/native';
 import Slider from '@react-native-community/slider';
@@ -37,6 +35,7 @@ import {
   SegmentedControl,
   useLatestRequest,
 } from '../../components/researcher/ResearcherUI';
+import { pageGuide } from '../../components/researcher/pageGuides';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { authTheme } from '../../styles/authTheme';
 import {
@@ -70,11 +69,19 @@ export function tabForSection(section) {
   return SECTION_TO_TAB[section] || 'weights';
 }
 
+// Keeps only digits and clamps to 0..100 (whole numbers).
+export function cleanWeightText(raw) {
+  const digits = String(raw ?? '').replace(/[^0-9]/g, '');
+  if (!digits) return '';
+  return String(Math.min(Number(digits), 100));
+}
+
 const WeightRow = React.memo(function WeightRow({ metric, label, value, effective, onChange }) {
   const [text, setText] = useState(String(value ?? 0));
 
+  // Follow the slider / reset, but leave an empty box alone while typing.
   useEffect(() => {
-    setText(String(value ?? 0));
+    setText((current) => (current === '' && Number(value) === 0 ? current : String(value ?? 0)));
   }, [value]);
 
   return (
@@ -86,14 +93,17 @@ const WeightRow = React.memo(function WeightRow({ metric, label, value, effectiv
         <TextInput
           value={text}
           onChangeText={(next) => {
-            setText(next.replace(/[^0-9.]/g, ''));
+            const clean = cleanWeightText(next);
+            setText(clean);
+            onChange(metric, clean === '' ? 0 : Number(clean));
           }}
-          onEndEditing={() => onChange(metric, text)}
-          onSubmitEditing={() => onChange(metric, text)}
-          keyboardType="numeric"
-          maxLength={5}
-          accessibilityLabel={`${label} weight`}
-          style={[styles.textInput, { minHeight: 34, width: 56, textAlign: 'right', paddingHorizontal: 8, fontWeight: '800' }]}
+          onEndEditing={() => {
+            if (text === '') setText('0');
+          }}
+          keyboardType="number-pad"
+          maxLength={3}
+          accessibilityLabel={`${label} weight, 0 to 100`}
+          style={[styles.textInput, { minHeight: 40, width: 56, textAlign: 'right', paddingHorizontal: 8, fontWeight: '800' }]}
         />
         <Text style={[styles.kvLabel, { width: 44, textAlign: 'right' }]}>
           {effective !== undefined ? `${(effective * 100).toFixed(0)}%` : ''}
@@ -141,6 +151,8 @@ export default function ResearcherWeightAnalysisScreen({ navigation, route }) {
   const [saveNote, setSaveNote] = useState('');
   const [saveError, setSaveError] = useState('');
   const [notice, setNotice] = useState('');
+  // True when the notice is about a loaded experiment (shows a way back).
+  const [noticeFromSaved, setNoticeFromSaved] = useState(false);
   const [analyzedWeightsKey, setAnalyzedWeightsKey] = useState('');
   const pendingExperimentRef = useRef(null);
 
@@ -239,6 +251,7 @@ export default function ResearcherWeightAnalysisScreen({ navigation, route }) {
       setActiveExperiment({ id: experiment.id, name: experiment.name, weightsKey: JSON.stringify(nextWeights) });
       setShowSaveBox(false);
       setNotice(`Loaded “${experiment.name}”. Its weights are applied below.`);
+      setNoticeFromSaved(true);
       setTab('weights');
       scrollToTop();
     },
@@ -319,7 +332,8 @@ export default function ResearcherWeightAnalysisScreen({ navigation, route }) {
   };
 
   const updateWeight = useCallback((metric, value) => {
-    setWeights((current) => ({ ...current, [metric]: Math.max(0, Math.round(Number(value) || 0)) }));
+    const next = Math.min(100, Math.max(0, Math.round(Number(value) || 0)));
+    setWeights((current) => (current[metric] === next ? current : { ...current, [metric]: next }));
   }, []);
 
   const resetWeights = () => {
@@ -383,6 +397,7 @@ export default function ResearcherWeightAnalysisScreen({ navigation, route }) {
     setSaveNote('');
     setSaveError('');
     setNotice(existing ? `Updated “${name}”.` : `Saved “${name}”. Find it in the Saved tab.`);
+    setNoticeFromSaved(false);
   };
 
   const deleteExperiment = async (id) => {
@@ -430,6 +445,7 @@ export default function ResearcherWeightAnalysisScreen({ navigation, route }) {
       <PageHeader
         title="Weight Analysis"
         subtitle="Change indicator weights, see new ranks."
+        guide={pageGuide('weights', { dataset: datasetKey })}
       />
 
       <SegmentedControl options={tabs} value={tab} onChange={changeTab} />
@@ -448,7 +464,27 @@ export default function ResearcherWeightAnalysisScreen({ navigation, route }) {
         <>
           {!!notice && (
             <View style={[styles.finding, { borderColor: '#A7F3D0', backgroundColor: '#ECFDF5' }]}>
-              <Text style={[styles.findingText, { color: '#047857', fontWeight: '800' }]}>{notice}</Text>
+              <View style={[styles.rowBetween, { alignItems: 'flex-start' }]}>
+                <Text style={[styles.findingText, styles.flex1, { color: '#047857', fontWeight: '800' }]}>{notice}</Text>
+                <TouchableOpacity
+                  onPress={() => setNotice('')}
+                  accessibilityLabel="Dismiss"
+                  style={{ minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center', marginTop: -10, marginRight: -10 }}
+                >
+                  <Text style={{ color: '#047857', fontWeight: '800' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              {noticeFromSaved && (
+                <OutlineButton
+                  title="← Saved experiments"
+                  small
+                  onPress={() => {
+                    setNotice('');
+                    changeTab('saved');
+                  }}
+                  style={{ alignSelf: 'flex-start', marginTop: 4 }}
+                />
+              )}
             </View>
           )}
 
@@ -497,6 +533,9 @@ export default function ResearcherWeightAnalysisScreen({ navigation, route }) {
             ) : (
               <View style={[styles.finding, { marginTop: 4, borderColor: authTheme.colors.brandBorder, backgroundColor: '#F3FBF8' }]}>
                 <Text style={styles.findingTitle}>Save experiment</Text>
+                <Text style={[styles.mutedText, { marginBottom: 6 }]}>
+                  Saves {shortName} {year}, these weights and the ±{Math.round(variation * 100)}% stability setting.
+                </Text>
                 <Text style={styles.label}>Name *</Text>
                 <TextInput
                   value={saveName}

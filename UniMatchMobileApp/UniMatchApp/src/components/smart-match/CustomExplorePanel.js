@@ -24,27 +24,23 @@ import CustomFilterBuilder from './CustomFilterBuilder';
 import SavedSearchesPanel from './SavedSearchesPanel';
 import { authTheme } from '../../styles/authTheme';
 import useKeyboardAwareScroll from '../../utils/useKeyboardAwareScroll';
+import {
+  SMART_SORT_OPTIONS,
+  SMART_SORT_ORDER_OPTIONS,
+  normalizeSortKey,
+  sortUniversitiesLocally,
+} from '../../utils/smartMatchSort';
 
-const SORT_OPTIONS = [
-  { label: 'Official Rank', value: 'official_rank' },
-  { label: 'Smart Rank', value: 'smart_rank' },
-  { label: 'Personalized Score', value: 'personalized_score' },
-  { label: 'Tuition Fee', value: 'tuition_fee' },
-  { label: 'Living Cost', value: 'living_cost' },
-  { label: 'Acceptance Rate', value: 'acceptance_rate' },
-  { label: 'Employability', value: 'graduate_employability_rate' },
-];
+const SORT_OPTIONS = SMART_SORT_OPTIONS;
 
-const ORDER_OPTIONS = [
-  { label: 'Ascending', value: 'asc' },
-  { label: 'Descending', value: 'desc' },
-];
+const ORDER_OPTIONS = SMART_SORT_ORDER_OPTIONS;
 
 const PAGE_SIZE_OPTIONS = [
   { label: '5', value: 5 },
   { label: '10', value: 10 },
   { label: '20', value: 20 },
   { label: '50', value: 50 },
+  { label: '100', value: 100 },
 ];
 
 const DEFAULT_SORT_BY = 'official_rank';
@@ -186,6 +182,8 @@ const SortOptionsModal = memo(function SortOptionsModal({
               onPress={onClose}
               activeOpacity={0.85}
               style={styles.closeButton}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
             >
               <Text style={styles.closeText}>✕</Text>
             </TouchableOpacity>
@@ -272,6 +270,12 @@ export default function CustomExplorePanel({
 
   const hasResults = Array.isArray(universities) && universities.length > 0;
 
+  // Same local sort as the web (CustomExplorePanel sortUniversitiesLocally).
+  const sortedUniversities = useMemo(
+    () => sortUniversitiesLocally(universities, sortBy, sortOrder),
+    [universities, sortBy, sortOrder]
+  );
+
   useEffect(() => {
     loadSavedState();
   }, [draftStorageKey, savedStorageKey]);
@@ -296,7 +300,7 @@ export default function CustomExplorePanel({
         const parsed = JSON.parse(savedDraft);
 
         setFilters(Array.isArray(parsed?.filters) ? parsed.filters : []);
-        setSortBy(parsed?.sortBy || DEFAULT_SORT_BY);
+        setSortBy(normalizeSortKey(parsed?.sortBy));
         setSortOrder(parsed?.sortOrder || DEFAULT_SORT_ORDER);
         setPageSize(Number(parsed?.pageSize) || DEFAULT_PAGE_SIZE);
       }
@@ -341,40 +345,19 @@ export default function CustomExplorePanel({
     topN: DEFAULT_TOP_N,
   });
 
+  // No filters = browse every university (same as the web).
   const applyFilters = () => {
-    const cleanFilters = getCleanFilters();
-
-    if (cleanFilters.length === 0) {
-      Alert.alert(
-        'No Filters',
-        'Please add at least one filter before applying.'
-      );
-      return;
-    }
-
     setPage(1);
-    fetchCustomExplore(buildPayload(cleanFilters));
+    fetchCustomExplore(buildPayload(getCleanFilters()));
   };
 
   const applySort = () => {
-    const cleanFilters = getCleanFilters();
-
-    if (cleanFilters.length === 0) {
-      Alert.alert(
-        'No Filters',
-        'Add at least one filter first, then choose how to sort the results.'
-      );
-      return;
-    }
-
     setSortModalVisible(false);
     setPage(1);
-    fetchCustomExplore(buildPayload(cleanFilters));
+    fetchCustomExplore(buildPayload(getCleanFilters()));
   };
 
   const openSortModal = () => {
-    setSortBy(DEFAULT_SORT_BY);
-    setSortOrder(DEFAULT_SORT_ORDER);
     setSortModalVisible(true);
   };
 
@@ -455,7 +438,7 @@ export default function CustomExplorePanel({
 
     setPage(1);
     setFilters(savedFilters);
-    setSortBy(search?.sortBy || DEFAULT_SORT_BY);
+    setSortBy(normalizeSortKey(search?.sortBy));
     setSortOrder(search?.sortOrder || DEFAULT_SORT_ORDER);
     setPageSize(Number(search?.pageSize) || DEFAULT_PAGE_SIZE);
     setShowSaveBox(false);
@@ -463,7 +446,7 @@ export default function CustomExplorePanel({
 
     fetchCustomExplore({
       filters: savedFilters,
-      sortBy: search?.sortBy || DEFAULT_SORT_BY,
+      sortBy: normalizeSortKey(search?.sortBy),
       sortOrder: search?.sortOrder || DEFAULT_SORT_ORDER,
       topN: DEFAULT_TOP_N,
     });
@@ -616,6 +599,8 @@ export default function CustomExplorePanel({
                 activeOpacity={0.85}
                 onPress={openSortModal}
                 disabled={loading}
+                accessibilityRole="button"
+                accessibilityLabel="Sort results"
               >
                 <Text style={styles.sortIconText}>⇅</Text>
               </TouchableOpacity>
@@ -627,7 +612,7 @@ export default function CustomExplorePanel({
               title=""
               description=""
               dataset={datasetKey}
-              universities={universities}
+              universities={sortedUniversities}
               loading={loading}
               activeTab="smart"
               page={page}
@@ -928,8 +913,8 @@ const styles = StyleSheet.create({
   },
 
   sortIconButton: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     borderRadius: 14,
     backgroundColor: '#ECFDF5',
     borderWidth: 1,
@@ -1001,8 +986,8 @@ const styles = StyleSheet.create({
   },
 
   closeButton: {
-    width: 34,
-    height: 34,
+    width: 40,
+    height: 40,
     borderRadius: 14,
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
@@ -1028,7 +1013,7 @@ const styles = StyleSheet.create({
   },
 
   chip: {
-    minHeight: 34,
+    minHeight: 40,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: authTheme.colors.brandBorder,

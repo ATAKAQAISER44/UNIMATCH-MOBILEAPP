@@ -56,6 +56,8 @@ export const POLICY_TOOLS = [
 ];
 
 const dashboardItem = { key: 'dashboard', label: 'Dashboard', hint: 'Your overview', icon: 'home-outline', route: 'Dashboard' };
+// Opens the search modal (AppMenu); tapping a result opens the University page.
+const searchItem = { key: 'search', label: 'Search Universities', hint: 'Find any university', icon: 'search-outline', action: 'search' };
 
 export function researcherGroups(dataset = 'qs', year) {
   const withYear = (params) => (year ? { ...params, year } : params);
@@ -96,17 +98,17 @@ export function menuGroupsFor(roleKey, context = {}) {
       ...researcherGroups(context.dataset, context.year)];
   }
   if (roleKey === 'administrator') {
-    return [{ title: '', items: [dashboardItem] }, { title: 'My university', items: ADMIN_TOOLS }];
+    return [{ title: '', items: [dashboardItem, searchItem] }, { title: 'My university', items: ADMIN_TOOLS }];
   }
   if (roleKey === 'policymaker') {
-    return [{ title: '', items: [dashboardItem] }, { title: 'My country', items: POLICY_TOOLS }];
+    return [{ title: '', items: [dashboardItem, searchItem] }, { title: 'My country', items: POLICY_TOOLS }];
   }
   return [
     {
       title: '',
       items: [
         dashboardItem,
-        { key: 'search', label: 'Search Universities', hint: 'Find any university', icon: 'search-outline', action: 'search' },
+        searchItem,
         { key: 'compareUniversities', label: 'Compare Universities', hint: 'Up to 3 side by side', icon: 'git-compare-outline', route: STUDENT_ROUTES.compare },
         { key: 'saved', label: 'Saved Universities', hint: 'Your saved list', icon: 'bookmark-outline', route: STUDENT_ROUTES.saved },
         { key: 'shortlist', label: 'My Shortlist', hint: 'Chances and total cost', icon: 'ribbon-outline', route: STUDENT_ROUTES.shortlist },

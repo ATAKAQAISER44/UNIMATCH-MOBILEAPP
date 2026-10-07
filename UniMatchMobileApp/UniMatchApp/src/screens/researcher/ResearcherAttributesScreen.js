@@ -28,6 +28,7 @@ import {
   useDebouncedValue,
   useLatestRequest,
 } from '../../components/researcher/ResearcherUI';
+import { pageGuide } from '../../components/researcher/pageGuides';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { ATTRIBUTE_EXPLORER_COLUMNS, PAGE_SIZE_OPTIONS } from '../../constants/researcherConstants';
 import { fetchAllPages, fetchAttributesExplorer } from '../../services/researcherApi';
@@ -198,7 +199,7 @@ export default function ResearcherAttributesScreen({ navigation }) {
         setReloadKey((value) => value + 1);
       }}
     >
-      <PageHeader title="Attributes Explorer" subtitle="Fees, scholarships and admission" />
+      <PageHeader title="Attributes Explorer" subtitle="Fees, scholarships and admission" guide={pageGuide('attributes')} />
 
       <Card>
         <SearchInput value={search} onChangeText={changeFilter(setSearch)} placeholder="Search university or country..." />

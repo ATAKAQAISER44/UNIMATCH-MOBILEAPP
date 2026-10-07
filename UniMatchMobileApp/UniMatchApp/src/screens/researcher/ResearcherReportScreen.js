@@ -24,6 +24,7 @@ import {
   SelectField,
   useLatestRequest,
 } from '../../components/researcher/ResearcherUI';
+import { pageGuide } from '../../components/researcher/pageGuides';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { RESEARCHER_ROUTES } from '../../constants/researcherConstants';
 import { loadSavedExperiments } from '../../utils/researcherExperiments';
@@ -147,6 +148,7 @@ export default function ResearcherReportScreen({ navigation, route }) {
       <PageHeader
         title="Research Report"
         subtitle="Full write-up of a saved experiment"
+        guide={pageGuide('report')}
       />
 
       {experiments === null ? (

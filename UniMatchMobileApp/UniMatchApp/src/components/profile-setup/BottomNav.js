@@ -12,21 +12,27 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { authTheme } from '../../styles/authTheme';
 import { profileSetupStyles as styles } from '../../styles/profileSetupStyles';
 
+// canExit: on step 1 the back button leaves the form (edit mode only).
 export default function BottomNav({
   step,
   loading,
   isEditMode,
+  canExit = false,
   onBack,
   onNext,
   onSubmit,
 }) {
+  const hideBack = step === 1 && !canExit;
+
   return (
     <View style={styles.navRow}>
       <TouchableOpacity
-        style={[styles.backButton, step === 1 && styles.hiddenBackButton]}
+        style={[styles.backButton, hideBack && styles.hiddenBackButton]}
         activeOpacity={0.85}
         onPress={onBack}
-        disabled={step === 1}
+        disabled={hideBack || loading}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
       >
         <Text style={styles.backButtonText}>←</Text>
       </TouchableOpacity>

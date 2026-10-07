@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { topBarPadding } from '../../utils/safeArea';
 
 import PickerModal from '../PickerModal';
@@ -84,7 +85,11 @@ export function ResearcherTopBar({ onBack, onMenu, roleLabel = 'RESEARCHER' }) {
 
 // ── Headings & cards ───────────────────────────────────────────────────────
 // hint: optional one-line "how to use" instruction under the subtitle.
-export function PageHeader({ eyebrow, title, subtitle, hint, children }) {
+// guide (researcher pages, web: ResearcherPageHeader): { question, steps: [3
+// short steps], next: { label, route, params } }. Shows a small foldable
+// "How to use" (folded by default, remembered on the phone) and a
+// "Next: X →" link.
+export function PageHeader({ eyebrow, title, subtitle, hint, guide, children }) {
   return (
     <View style={styles.heroCard}>
       {!!eyebrow && (
@@ -101,7 +106,75 @@ export function PageHeader({ eyebrow, title, subtitle, hint, children }) {
           <Text style={[styles.heroSubtitle, styles.flex1, { color: authTheme.colors.gray700 }]}>{hint}</Text>
         </View>
       )}
+      {guide ? <PageGuide guide={guide} /> : null}
       {children}
+    </View>
+  );
+}
+
+const GUIDE_STORAGE_KEY = 'researcher_page_guide_open';
+
+function PageGuide({ guide }) {
+  const navigation = useNavigation();
+  const [open, toggle] = usePersistentToggle(GUIDE_STORAGE_KEY, false);
+  const { question, steps = [], next } = guide;
+
+  return (
+    <View style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: authTheme.colors.brandBorder, paddingTop: 2 }}>
+      <View style={[styles.rowBetween, { flexWrap: 'wrap' }]}>
+        {steps.length > 0 || question ? (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={toggle}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: open }}
+            accessibilityLabel={open ? 'Hide how to use' : 'Show how to use'}
+            style={{ minHeight: 40, flexDirection: 'row', alignItems: 'center', paddingRight: 8 }}
+          >
+            <Ionicons name="help-circle-outline" size={15} color={authTheme.colors.brandTeal} style={{ marginRight: 4 }} />
+            <Text style={[styles.eyebrow, { marginBottom: 0 }]}>How to use</Text>
+            <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={13} color={authTheme.colors.brandTeal} style={{ marginLeft: 3 }} />
+          </TouchableOpacity>
+        ) : (
+          <View />
+        )}
+        {!!next && (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate(next.route, next.params, { pop: true })}
+            accessibilityRole="link"
+            style={{ minHeight: 40, justifyContent: 'center', marginLeft: 'auto' }}
+          >
+            <Text style={{ fontSize: 11.5, fontWeight: '900', color: authTheme.colors.brandTeal }}>Next: {next.label} →</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      {open && (
+        <View style={{ paddingBottom: 2 }}>
+          {!!question && (
+            <Text style={[styles.heroSubtitle, { color: authTheme.colors.gray700, fontWeight: '700', marginBottom: 6 }]}>{question}</Text>
+          )}
+          {steps.map((step, index) => (
+            <View key={step} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 }}>
+              <View
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  backgroundColor: authTheme.colors.brandMintDeep,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 7,
+                  marginTop: 0,
+                }}
+              >
+                <Text style={{ fontSize: 10, fontWeight: '900', color: authTheme.colors.brandTeal }}>{index + 1}</Text>
+              </View>
+              <Text style={[styles.heroSubtitle, styles.flex1, { color: authTheme.colors.gray700 }]}>{step}</Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }

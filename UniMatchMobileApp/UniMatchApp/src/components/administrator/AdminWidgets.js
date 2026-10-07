@@ -11,7 +11,7 @@
 //   NumberField       - small labelled numeric input.
 
 import React, { useCallback, useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { Text, TextInput } from '../AppText';
 import { LoadingBlock, SegmentedControl } from '../researcher/ResearcherUI';
@@ -145,19 +145,52 @@ export function InstitutionGate({ institution, children }) {
   return children;
 }
 
-export function NumberField({ label, value, onChangeText, placeholder, style, inputStyle }) {
+// Keeps whole numbers only: digits, plus one leading "-" when negatives are
+// allowed. max (optional) clamps the value while typing.
+export function cleanNumberText(text, { negative = false, max } = {}) {
+  const raw = String(text ?? '');
+  const minus = negative && raw.trim().startsWith('-') ? '-' : '';
+  const digits = raw.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+  if (!digits) return minus;
+  if (max !== undefined && Number(digits) > max) return `${minus}${max}`;
+  return `${minus}${digits}`;
+}
+
+// Numeric input. integer: digits only (negative allows a leading "-");
+// max clamps while typing; error (true or a message) marks the box red and
+// a message string is shown under it.
+export function NumberField({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  style,
+  inputStyle,
+  integer = false,
+  negative = false,
+  max,
+  error,
+  accessibilityLabel,
+}) {
+  const handleChange = integer
+    ? (text) => onChangeText(cleanNumberText(text, { negative, max }))
+    : onChangeText;
+
   return (
     <View style={style}>
       {!!label && <Text style={styles.label}>{label}</Text>}
       <TextInput
-        style={[styles.textInput, inputStyle]}
+        style={[styles.textInput, { minHeight: 40 }, error && styles.inputError, inputStyle]}
         value={value === undefined || value === null ? '' : String(value)}
-        onChangeText={onChangeText}
+        onChangeText={handleChange}
         placeholder={placeholder}
         placeholderTextColor="#94A3B8"
-        keyboardType="numeric"
+        keyboardType={!integer ? 'numeric' : negative ? Platform.select({ ios: 'numbers-and-punctuation', default: 'numeric' }) : 'number-pad'}
+        maxLength={integer ? (max !== undefined ? String(max).length : 6) + (negative ? 1 : 0) : undefined}
         returnKeyType="done"
+        accessibilityLabel={accessibilityLabel || label || placeholder}
       />
+      {typeof error === 'string' && !!error && <Text style={[styles.errorText, { marginTop: 4 }]}>{error}</Text>}
     </View>
   );
 }

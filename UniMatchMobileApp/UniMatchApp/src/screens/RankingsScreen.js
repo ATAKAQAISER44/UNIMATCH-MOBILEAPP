@@ -6,7 +6,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   View,
   FlatList,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
 } from 'react-native';
@@ -38,6 +37,7 @@ import RankingFilterCard from '../components/rankings/RankingFilterCard';
 import RankingTableHeader from '../components/rankings/RankingTableHeader';
 import UniversityTableRow from '../components/rankings/UniversityTableRow';
 import OptionModal from '../components/rankings/OptionModal';
+import PaginationControls from '../components/rankings/PaginationControls';
 import { useOpenUniversity } from '../components/UniversityLink';
 
 import MyRankingScreen from '../components/rankings/my-ranking/MyRankingScreen';
@@ -171,6 +171,7 @@ export default function RankingsScreen({ route = {}, navigation }) {
   const [choiceModal, setChoiceModal] = useState(null);
   const [infoModal, setInfoModal] = useState(null);
   const [rankingError, setRankingError] = useState('');
+  const [recomputeToken, setRecomputeToken] = useState(0);
   const rankingRequestIdRef = useRef(0);
 
   const currentResults = useMemo(() => {
@@ -209,6 +210,7 @@ export default function RankingsScreen({ route = {}, navigation }) {
       {
         label: 'Indicators',
         value:
+          summary?.total_parameters ||
           summary?.total_indicators ||
           summary?.indicators ||
           summary?.metrics_count ||
@@ -579,18 +581,45 @@ export default function RankingsScreen({ route = {}, navigation }) {
     [toggleSaved, datasetKey]
   );
 
-  const getExportRows = useCallback(
-    () =>
-      currentResults.map((item) => ({
+  const flattenExportRows = useCallback(
+    (rows) =>
+      (rows || []).map((item) => ({
         ...item,
         ...(item.raw || {}),
       })),
-    [currentResults]
+    []
   );
 
-  const exportCsv = useCallback(async () => {
+  const shareCsvFile = useCallback(async (rowsToExport, fileName) => {
+    const keys = Array.from(
+      new Set(rowsToExport.flatMap((row) => Object.keys(row || {})))
+    ).filter((key) => key !== 'raw');
+
+    const header = keys.map(escapeCsv).join(',');
+    const csvRows = rowsToExport.map((item) =>
+      keys.map((key) => escapeCsv(item[key])).join(',')
+    );
+
+    const csv = [header, ...csvRows].join('\n');
+    const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+
+    await FileSystem.writeAsStringAsync(fileUri, csv);
+
+    const isAvailable = await Sharing.isAvailableAsync();
+
+    if (isAvailable) {
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'text/csv',
+        dialogTitle: 'Export CSV',
+      });
+    } else {
+      Alert.alert('CSV saved', fileUri);
+    }
+  }, []);
+
+  const exportCurrentPageCsv = useCallback(async () => {
     try {
-      const rowsToExport = getExportRows();
+      const rowsToExport = flattenExportRows(currentResults);
 
       if (!rowsToExport.length) {
         Alert.alert('No data', 'There is no visible data to export.');
@@ -598,38 +627,58 @@ export default function RankingsScreen({ route = {}, navigation }) {
       }
 
       setExporting(true);
-
-      const keys = Array.from(
-        new Set(rowsToExport.flatMap((row) => Object.keys(row || {})))
-      ).filter((key) => key !== 'raw');
-
-      const header = keys.map(escapeCsv).join(',');
-      const csvRows = rowsToExport.map((item) =>
-        keys.map((key) => escapeCsv(item[key])).join(',')
-      );
-
-      const csv = [header, ...csvRows].join('\n');
-      const fileName = `${datasetKey}_${activeTab}_rankings.csv`;
-      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-
-      await FileSystem.writeAsStringAsync(fileUri, csv);
-
-      const isAvailable = await Sharing.isAvailableAsync();
-
-      if (isAvailable) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'text/csv',
-          dialogTitle: 'Export CSV',
-        });
-      } else {
-        Alert.alert('CSV saved', fileUri);
-      }
+      await shareCsvFile(rowsToExport, `${datasetKey}_${activeTab}_page_${page}.csv`);
     } catch (error) {
       Alert.alert('Export failed', error.message || 'Could not export CSV.');
     } finally {
       setExporting(false);
     }
-  }, [activeTab, datasetKey, getExportRows]);
+  }, [activeTab, currentResults, datasetKey, flattenExportRows, page, shareCsvFile]);
+
+  // Every row that matches the current search and country (web
+  // RankingPage exportCompleteCSV -> GET /rankings/{dataset}/export).
+  const exportAllFilteredCsv = useCallback(async () => {
+    try {
+      setExporting(true);
+
+      const params = new URLSearchParams();
+      const trimmedSearch = search.trim();
+
+      if (countryFilter !== ALL_COUNTRIES) params.append('country', countryFilter);
+      if (trimmedSearch) params.append('search', trimmedSearch);
+
+      const query = params.toString();
+      const { ok, data } = await apiGet(
+        `/rankings/${datasetKey}/export${query ? `?${query}` : ''}`,
+        { timeoutMs: HEAVY_TIMEOUT_MS }
+      );
+
+      if (!ok) {
+        throw new Error(getApiErrorMessage(data, 'Could not export CSV.'));
+      }
+
+      const rowsToExport = flattenExportRows(normalizeResults(data?.results || []));
+
+      if (!rowsToExport.length) {
+        Alert.alert('No data', 'No universities match these filters.');
+        return;
+      }
+
+      await shareCsvFile(rowsToExport, `${datasetKey}_all_filtered.csv`);
+    } catch (error) {
+      Alert.alert('Export failed', getApiErrorMessage(error, 'Could not export CSV.'));
+    } finally {
+      setExporting(false);
+    }
+  }, [countryFilter, datasetKey, flattenExportRows, search, shareCsvFile]);
+
+  const exportCsv = useCallback(() => {
+    Alert.alert('Export CSV', 'What should be exported?', [
+      { text: 'Current page', onPress: exportCurrentPageCsv },
+      { text: 'All (filtered)', onPress: exportAllFilteredCsv },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [exportAllFilteredCsv, exportCurrentPageCsv]);
 
   const exportMyRankingCsv = useCallback(
     async (rows, fileNamePrefix) => {
@@ -1079,12 +1128,21 @@ export default function RankingsScreen({ route = {}, navigation }) {
       setAttributeWeightsOpen(
         (savedItem.visibleAttributeKeys || []).length > 0
       );
-      setSavedRankingMessage('Saved settings loaded. Tap Compute My Ranking to see updated results.');
+      setSavedRankingMessage('Saved settings loaded.');
+      // Recompute once the loaded settings are in state.
+      setRecomputeToken((token) => token + 1);
 
       setTimeout(() => setSavedRankingMessage(''), 4000);
     },
     [datasetKey]
   );
+
+  const fetchMyRankingRef = useRef(fetchMyRanking);
+  fetchMyRankingRef.current = fetchMyRanking;
+
+  useEffect(() => {
+    if (recomputeToken > 0) fetchMyRankingRef.current();
+  }, [recomputeToken]);
 
   const deleteSavedRanking = useCallback(
     async (id) => {
@@ -1356,31 +1414,12 @@ export default function RankingsScreen({ route = {}, navigation }) {
             ) : null
           }
           ListFooterComponent={
-            currentResults.length > 0 && activeTab !== 'saved' ? (
-              <View style={styles.paginationRow}>
-                <TouchableOpacity
-                  style={[styles.pageBtn, page <= 1 && styles.disabledBtn]}
-                  disabled={page <= 1}
-                  onPress={() => fetchTabData(activeTab, page - 1)}
-                >
-                  <Text style={styles.pageBtnText}>Previous</Text>
-                </TouchableOpacity>
-
-                <Text style={styles.pageText}>
-                  Page {page} / {totalPages}
-                </Text>
-
-                <TouchableOpacity
-                  style={[
-                    styles.pageBtn,
-                    page >= totalPages && styles.disabledBtn,
-                  ]}
-                  disabled={page >= totalPages}
-                  onPress={() => fetchTabData(activeTab, page + 1)}
-                >
-                  <Text style={styles.pageBtnText}>Next</Text>
-                </TouchableOpacity>
-              </View>
+            currentResults.length > 0 && activeTab !== 'saved' && !tabLoading ? (
+              <PaginationControls
+                page={page}
+                totalPages={totalPages}
+                onPageChange={(target) => fetchTabData(activeTab, target)}
+              />
             ) : null
           }
         />

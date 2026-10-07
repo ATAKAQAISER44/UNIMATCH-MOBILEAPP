@@ -49,6 +49,7 @@ export default function PriorityStep({
                 <TouchableOpacity
                   onPress={() => clearPriority(key)}
                   activeOpacity={0.8}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
                   <Text style={styles.clearText}>Clear</Text>
                 </TouchableOpacity>

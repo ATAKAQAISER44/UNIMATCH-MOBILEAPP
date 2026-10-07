@@ -29,6 +29,18 @@ import { RESEARCHER_METRICS, officialDefaultWeights, officialMetricLabel } from 
 import { PRIORITY_FOCUS } from '../../constants/roleConstants';
 import { useAdminInstitution, useWhatIf } from '../../services/adminApi';
 
+// "Improve one indicator": scores are on a 0-100 scale, so a change of more
+// than 50 points either way is not a useful question.
+export const MAX_POINTS = 50;
+
+export function pointsError(text) {
+  if (text === '' || text === '-') return '';
+  const value = Number(text);
+  if (!Number.isFinite(value) || value === 0) return 'Enter a change other than 0.';
+  if (Math.abs(value) > MAX_POINTS) return `Use -${MAX_POINTS} to ${MAX_POINTS} points.`;
+  return '';
+}
+
 // Same as the web: the focus indicators get three times their official
 // weight; no focus (Balanced) weighs every indicator equally.
 function priorityWeights(official, focus) {
@@ -75,13 +87,17 @@ export default function AdminWhatIfScreen({ navigation, route }) {
   const baseline = result('baseline')?.rank;
   const weightText = (m) => (draft[m] !== undefined ? draft[m] : String(official[m]));
   const pending = loading && !!data;
+  const weightTotal = metrics.reduce((sum, m) => sum + (Number(weightText(m)) || 0), 0);
+  const pointsMessage = pointsError(change.points);
+  const canSimulate = !!change.metric && change.points !== '' && change.points !== '-' && !pointsMessage;
 
   function recalculate() {
-    setCustom(Object.fromEntries(metrics.map((m) => [m, Number(weightText(m)) || 0])));
+    if (weightTotal <= 0) return;
+    setCustom(Object.fromEntries(metrics.map((m) => [m, Math.max(0, Number(weightText(m)) || 0)])));
   }
 
   function simulate() {
-    if (change.metric && Number(change.points)) setImprovement({ metric: change.metric, points: Number(change.points) });
+    if (canSimulate) setImprovement({ metric: change.metric, points: Number(change.points) });
   }
 
   const outcome = (name) => (pending ? <InlineLoader style={{ padding: 4 }} /> : <RankChange rank={result(name)?.rank} baseline={baseline} />);
@@ -151,14 +167,24 @@ export default function AdminWhatIfScreen({ navigation, route }) {
                     <NumberField
                       value={weightText(m)}
                       onChangeText={(text) => setDraft((d) => ({ ...d, [m]: text }))}
+                      integer
+                      max={100}
+                      accessibilityLabel={`${officialMetricLabel(dataset, m)} weight, 0 to 100`}
                       style={{ width: 72 }}
-                      inputStyle={{ minHeight: 38, textAlign: 'center' }}
+                      inputStyle={{ textAlign: 'center' }}
                     />
                   </View>
                 ))}
               </View>
+              <View style={[styles.rowBetween, { marginTop: 10 }]}>
+                <Text style={styles.mutedText}>Weights 0–100. Total</Text>
+                <Text style={styles.kvValue}>{Math.round(weightTotal * 10) / 10}</Text>
+              </View>
+              {weightTotal <= 0 && (
+                <Text style={[styles.errorText, { marginTop: 4 }]}>Give at least one weight above 0.</Text>
+              )}
               <View style={[styles.buttonRow, { alignItems: 'center', marginTop: 10 }]}>
-                <GradientButton title="Recalculate" small onPress={recalculate} />
+                <GradientButton title="Recalculate" small onPress={recalculate} disabled={weightTotal <= 0} />
                 <OutlineButton
                   title="Reset to official"
                   small
@@ -189,10 +215,16 @@ export default function AdminWhatIfScreen({ navigation, route }) {
                   value={change.points}
                   onChangeText={(points) => setChange((c) => ({ ...c, points }))}
                   placeholder="points"
+                  integer
+                  negative
+                  accessibilityLabel={`Points, -${MAX_POINTS} to ${MAX_POINTS}`}
                   style={{ width: 90 }}
                 />
-                <GradientButton title="Simulate" onPress={simulate} disabled={!change.metric || !Number(change.points)} />
+                <GradientButton title="Simulate" onPress={simulate} disabled={!canSimulate} />
               </View>
+              <Text style={[pointsMessage ? styles.errorText : styles.noteText, { marginTop: 6 }]}>
+                {pointsMessage || `Points: -${MAX_POINTS} to ${MAX_POINTS} (e.g. 5).`}
+              </Text>
               {!!improvement && <View style={{ marginTop: 10 }}>{outcome('improvement')}</View>}
             </Card>
           </>

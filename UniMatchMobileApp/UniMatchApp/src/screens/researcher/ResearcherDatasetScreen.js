@@ -34,6 +34,7 @@ import {
   useDebouncedValue,
   useLatestRequest,
 } from '../../components/researcher/ResearcherUI';
+import { pageGuide } from '../../components/researcher/pageGuides';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import {
   PAGE_SIZE_OPTIONS,
@@ -288,7 +289,7 @@ export default function ResearcherDatasetScreen({ navigation, route }) {
         setReloadKey((value) => value + 1);
       }}
     >
-      <PageHeader title={`${datasetInfo.title} ${year}`} />
+      <PageHeader title={`${datasetInfo.title} ${year}`} guide={pageGuide('dataset', { dataset: datasetKey })} />
 
       <DatasetYearBar
         datasetKey={datasetKey}

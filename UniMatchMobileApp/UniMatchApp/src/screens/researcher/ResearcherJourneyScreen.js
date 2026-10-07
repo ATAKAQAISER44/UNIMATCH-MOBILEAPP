@@ -5,14 +5,12 @@
 // The line chart is drawn with plain Views (no extra chart library).
 
 import React, { useState } from 'react';
-import {
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { View } from 'react-native';
 import { Text } from '../../components/AppText';
 
 import ResearcherLayout from '../../components/researcher/ResearcherLayout';
 import { useOpenUniversity } from '../../components/UniversityLink';
+import UniversityResultRow from '../../components/researcher/UniversityResultRow';
 import {
   Card,
   EmptyState,
@@ -26,6 +24,7 @@ import {
   useDebouncedValue,
   useLatestRequest,
 } from '../../components/researcher/ResearcherUI';
+import { pageGuide } from '../../components/researcher/pageGuides';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { authTheme } from '../../styles/authTheme';
 import { fetchUniversityJourney, searchJourneyUniversities } from '../../services/researcherApi';
@@ -140,7 +139,7 @@ export default function ResearcherJourneyScreen({ navigation, route }) {
 
   return (
     <ResearcherLayout navigation={navigation} activeKey="journey">
-      <PageHeader title="University Journey" subtitle="Rank over the years" />
+      <PageHeader title="University Journey" subtitle="Rank over the years" guide={pageGuide('journey')} />
 
       <Card>
         <SearchInput
@@ -160,12 +159,17 @@ export default function ResearcherJourneyScreen({ navigation, route }) {
               <Text style={[styles.mutedText, { padding: 12 }]}>No university found.</Text>
             ) : (
               suggestions.map((item) => (
-                <TouchableOpacity key={item.key} style={styles.suggestionRow} onPress={() => selectUniversity(item)}>
-                  <View style={styles.flex1}>
-                    <Text style={styles.suggestionName}>{item.name}</Text>
-                    {!!item.country && <Text style={styles.suggestionSub}>{item.country}</Text>}
-                  </View>
-                </TouchableOpacity>
+                <UniversityResultRow
+                  key={item.key}
+                  name={item.name}
+                  country={item.country}
+                  primary="journey"
+                  onOpen={() => openUniversity({ name: item.name, country: item.country })}
+                  onCompare={() =>
+                    navigation.navigate(RESEARCHER_ROUTES.compare, { dataset: 'qs', add: item.name }, { pop: true })
+                  }
+                  onJourney={() => selectUniversity(item)}
+                />
               ))
             )}
           </View>

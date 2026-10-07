@@ -1,8 +1,9 @@
 // src/screens/policymaker/PolicyCompareScreen.js
 //
 // Policymaker country comparison (web: policymaker/PolicymakerCompare).
-// Up to four countries (the policymaker's own country first by default),
-// ranking presence and access & affordability side by side.
+// Up to four countries (the policymaker's own country first when it is set;
+// any countries can be compared without one), ranking presence and access &
+// affordability side by side.
 
 import React, { useState } from 'react';
 import { TouchableOpacity, View } from 'react-native';
@@ -20,7 +21,7 @@ import {
   SectionHeading,
   SelectField,
 } from '../../components/researcher/ResearcherUI';
-import { CountryGate, accessTableRows } from '../../components/policymaker/PolicyUI';
+import { accessTableRows } from '../../components/policymaker/PolicyUI';
 import { RANKINGS } from '../../constants/roleConstants';
 import { useCountryCompare, useCountryList, usePolicyCountry } from '../../services/policyApi';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
@@ -111,39 +112,45 @@ export default function PolicyCompareScreen({ navigation }) {
         hint="Add up to four countries, then compare the two tables."
       />
 
-      <CountryGate country={country}>
-        <CountryChooser selected={selected} onChange={setPicked} />
+      {country === undefined ? (
+        <Card>
+          <LoadingBlock />
+        </Card>
+      ) : (
+        <>
+          <CountryChooser selected={selected} onChange={setPicked} />
 
-        {selected.length === 0 ? (
-          <EmptyState text="Add a country to start comparing." />
-        ) : (
-          <>
-            {loading && (
-              <Card>
-                <LoadingBlock />
-              </Card>
-            )}
-            <ErrorBox message={error} onRetry={retry} />
+          {selected.length === 0 ? (
+            <EmptyState text="Add countries to compare." />
+          ) : (
+            <>
+              {loading && (
+                <Card>
+                  <LoadingBlock />
+                </Card>
+              )}
+              <ErrorBox message={error} onRetry={retry} />
 
-            {columns.length > 0 && (
-              <>
-                <CompareTable
-                  title="Ranking presence"
-                  subtitle="Latest edition of each ranking, kept apart from the attributes."
-                  columns={columns}
-                  rows={presenceRows}
-                />
-                <CompareTable
-                  title="Access & affordability"
-                  subtitle="Medians from the attributes dataset; fees and living cost are yearly, in USD."
-                  columns={columns}
-                  rows={accessRows}
-                />
-              </>
-            )}
-          </>
-        )}
-      </CountryGate>
+              {columns.length > 0 && (
+                <>
+                  <CompareTable
+                    title="Ranking presence"
+                    subtitle="Latest edition of each ranking, kept apart from the attributes."
+                    columns={columns}
+                    rows={presenceRows}
+                  />
+                  <CompareTable
+                    title="Access & affordability"
+                    subtitle="Medians from the attributes dataset; fees and living cost are yearly, in USD."
+                    columns={columns}
+                    rows={accessRows}
+                  />
+                </>
+              )}
+            </>
+          )}
+        </>
+      )}
     </AppLayout>
   );
 }

@@ -13,6 +13,7 @@ import { authTheme } from '../../styles/authTheme';
 import UniversityLink, { useOpenUniversity } from '../UniversityLink';
 import { useSavedUniversities } from '../../services/savedUniversities';
 import { useCompareList } from '../../services/compareList';
+import PaginationControls from '../rankings/PaginationControls';
 
 const safeText = (value, fallback = '') => {
   if (value === null || value === undefined || value === '') return fallback;
@@ -112,6 +113,13 @@ const getOfficialRank = (university) => {
     'N/A'
   );
 };
+
+// Web PersonalizedCard: the "Match" pill comes from the backend match_type.
+const getMatchType = (university) =>
+  university?.match_type ||
+  university?.match_label ||
+  university?.reason ||
+  'Smart Match';
 
 const getScore = (university) => {
   return (
@@ -258,6 +266,7 @@ const UniversityCard = memo(function UniversityCard({
 
       <View style={styles.badgeRow}>
         <InfoBadge label="Official" value={officialRank} />
+        <InfoBadge label="Match" value={getMatchType(university)} />
 
         {rankingScore !== null && rankingScore !== undefined ? (
           <InfoBadge label="Ranking" value={formatScore(rankingScore)} />
@@ -394,53 +403,11 @@ export default function PaginatedResults({
         ))}
       </View>
 
-      {safeUniversities.length > safePageSize && (
-        <View style={styles.pagination}>
-          <TouchableOpacity
-            style={[
-              styles.pageButton,
-              currentPage === 1 && styles.pageButtonDisabled,
-            ]}
-            disabled={currentPage === 1}
-            onPress={() => setPage(Math.max(1, currentPage - 1))}
-            activeOpacity={0.85}
-          >
-            <Text
-              style={[
-                styles.pageButtonText,
-                currentPage === 1 && styles.pageButtonTextDisabled,
-              ]}
-            >
-              Previous
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.pageIndicator}>
-            <Text style={styles.pageIndicatorText}>
-              {currentPage} / {totalPages}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.pageButton,
-              currentPage === totalPages && styles.pageButtonDisabled,
-            ]}
-            disabled={currentPage === totalPages}
-            onPress={() => setPage(Math.min(totalPages, currentPage + 1))}
-            activeOpacity={0.85}
-          >
-            <Text
-              style={[
-                styles.pageButtonText,
-                currentPage === totalPages && styles.pageButtonTextDisabled,
-              ]}
-            >
-              Next
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <PaginationControls
+        page={currentPage}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
     </View>
   );
 }
@@ -671,50 +638,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  pagination: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 12,
-  },
 
-  pageButton: {
-    minHeight: 36,
-    borderRadius: 13,
-    borderWidth: 1,
-    borderColor: authTheme.colors.brandTeal,
-    backgroundColor: '#F8FFFC',
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
-  pageButtonDisabled: {
-    borderColor: '#CBD5E1',
-    backgroundColor: '#F1F5F9',
-  },
 
-  pageButtonText: {
-    fontSize: 11.5,
-    lineHeight: 15,
-    fontWeight: '900',
-    color: authTheme.colors.brandTeal,
-  },
 
-  pageButtonTextDisabled: {
-    color: '#94A3B8',
-  },
 
-  pageIndicator: {
-    minHeight: 34,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: authTheme.colors.brandBorder,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
   actionRow: {
     flexDirection: 'row',
@@ -726,7 +654,7 @@ const styles = StyleSheet.create({
   actionButton: {
     flexGrow: 1,
     flexBasis: 80,
-    minHeight: 36,
+    minHeight: 40,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: authTheme.colors.brandBorder,
@@ -751,10 +679,4 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  pageIndicatorText: {
-    fontSize: 11.5,
-    lineHeight: 15,
-    fontWeight: '900',
-    color: authTheme.colors.gray900,
-  },
 });

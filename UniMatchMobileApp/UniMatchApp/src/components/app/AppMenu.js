@@ -2,8 +2,9 @@
 //
 // Side menu for every role (web: Navbar.jsx sidebar). The items come from
 // menuConfig.menuGroupsFor(role); the footer has Profile and Logout.
-// "Search Universities" opens the role's search: students search QS, THE
-// and ARWU at once, researchers open the Dataset Explorer.
+// "Search Universities" opens the role's search: students, administrators
+// and policymakers search QS, THE and ARWU at once (a result opens the
+// University page); researchers open the Dataset Explorer.
 
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -263,6 +264,7 @@ export default function AppMenu({ visible, onClose, activeKey, context }) {
       {role === 'researcher' ? (
         <ResearcherSearchModal visible={searchOpen} onClose={() => setSearchOpen(false)} defaultDataset={context?.dataset} />
       ) : (
+        // Student, administrator and policymaker: results open the University page.
         <UniversitySearchModal visible={searchOpen} onClose={() => setSearchOpen(false)} allowRankings={role === 'student'} />
       )}
     </>

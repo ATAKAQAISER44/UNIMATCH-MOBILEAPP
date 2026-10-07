@@ -33,6 +33,7 @@ import {
   SelectField,
   useDebouncedValue,
 } from '../../components/researcher/ResearcherUI';
+import { pageGuide } from '../../components/researcher/pageGuides';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import {
   RESEARCHER_DATASETS,
@@ -176,6 +177,7 @@ export default function ResearcherDatasetComparisonScreen({ navigation }) {
       <PageHeader
         title="Dataset Comparison"
         subtitle="QS, THE and ARWU side by side"
+        guide={pageGuide('datasetComparison')}
       />
 
       <Card>

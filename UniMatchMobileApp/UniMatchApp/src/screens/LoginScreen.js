@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  StyleSheet,
 } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 
@@ -23,29 +24,14 @@ import GoogleButton from '../components/GoogleButton';
 import { signInWithGoogle } from '../services/googleAuth';
 import { loginStyles as styles } from '../styles/loginStyles';
 import { authTheme } from '../styles/authTheme';
+import {
+  friendlyAuthError,
+  isEmailNotConfirmedError,
+  normalizeEmail,
+  validateEmail,
+} from '../utils/authValidation';
 
 const LOGO = require('../../assets/images/icon.png');
-
-function getFriendlyAuthError(message = '') {
-  const lowerMessage = String(message).toLowerCase();
-
-  if (lowerMessage.includes('email not confirmed')) {
-    return 'Please verify your email before signing in.';
-  }
-
-  if (
-    lowerMessage.includes('invalid login credentials') ||
-    lowerMessage.includes('invalid credentials')
-  ) {
-    return 'Invalid email or password. Please try again.';
-  }
-
-  if (lowerMessage.includes('oauth')) {
-    return 'Google sign-in could not be completed. Please try again.';
-  }
-
-  return message || 'Something went wrong. Please try again.';
-}
 
 export default function LoginScreen({ navigation }) {
   // Light page: keep content clear of the notch / status bar and home bar.
@@ -57,11 +43,18 @@ export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
+  // Set when the account exists but its email is not verified yet.
+  const [unverifiedEmail, setUnverifiedEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
 
-  const isBusy = useMemo(() => loading || googleLoading, [loading, googleLoading]);
+  const isBusy = useMemo(
+    () => loading || googleLoading || resendLoading,
+    [loading, googleLoading, resendLoading]
+  );
 
   const clearErrorIfNeeded = useCallback(() => {
     setError((previousError) => (previousError ? '' : previousError));
+    setUnverifiedEmail((previous) => (previous ? '' : previous));
   }, []);
 
   const goNextAfterLogin = useCallback(
@@ -122,16 +115,23 @@ export default function LoginScreen({ navigation }) {
   );
 
   const handleLogin = useCallback(async () => {
-    const cleanEmail = email.trim();
+    const cleanEmail = normalizeEmail(email);
 
     if (!cleanEmail || !password) {
       setError('Please enter your email and password.');
       return;
     }
 
+    const emailError = validateEmail(cleanEmail);
+    if (emailError) {
+      setError(emailError);
+      return;
+    }
+
     try {
       setLoading(true);
       setError('');
+      setUnverifiedEmail('');
 
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
@@ -139,19 +139,50 @@ export default function LoginScreen({ navigation }) {
       });
 
       if (authError) {
-        setError(getFriendlyAuthError(authError.message));
+        if (isEmailNotConfirmedError(authError)) {
+          setUnverifiedEmail(cleanEmail);
+          return;
+        }
+        setError(friendlyAuthError(authError));
         return;
       }
 
       await goNextAfterLogin(data?.user?.id);
     } catch (err) {
-      setError(
-        'Something went wrong. Please check your internet connection and try again.'
-      );
+      setError(friendlyAuthError(err));
     } finally {
       setLoading(false);
     }
   }, [email, goNextAfterLogin, password]);
+
+  // Sends a new sign-up code, then opens the code screen.
+  const handleResendVerification = useCallback(async () => {
+    if (!unverifiedEmail) return;
+
+    try {
+      setResendLoading(true);
+      setError('');
+
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: unverifiedEmail,
+      });
+
+      if (resendError) {
+        setError(friendlyAuthError(resendError));
+        return;
+      }
+
+      navigation.navigate('OtpVerification', {
+        email: unverifiedEmail,
+        flow: 'signup',
+      });
+    } catch (err) {
+      setError(friendlyAuthError(err));
+    } finally {
+      setResendLoading(false);
+    }
+  }, [navigation, unverifiedEmail]);
 
   const handleGoogleLogin = useCallback(async () => {
     setGoogleLoading(true);
@@ -219,6 +250,27 @@ export default function LoginScreen({ navigation }) {
                 {!!error && (
                   <View style={styles.alertWrap}>
                     <AlertBox message={error} type="error" />
+                  </View>
+                )}
+
+                {!!unverifiedEmail && (
+                  <View style={[styles.alertWrap, localStyles.warningBox]}>
+                    <Text style={localStyles.warningText}>
+                      Please verify your email first.
+                    </Text>
+
+                    <TouchableOpacity
+                      onPress={handleResendVerification}
+                      activeOpacity={0.85}
+                      disabled={isBusy}
+                      style={localStyles.warningButton}
+                    >
+                      {resendLoading ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={localStyles.warningButtonText}>Resend code</Text>
+                      )}
+                    </TouchableOpacity>
                   </View>
                 )}
 
@@ -322,3 +374,40 @@ export default function LoginScreen({ navigation }) {
     </LinearGradient>
   );
 }
+
+const localStyles = StyleSheet.create({
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: authTheme.radius.input,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    backgroundColor: '#FFFBEB',
+  },
+
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+
+  warningButton: {
+    minHeight: 40,
+    minWidth: 112,
+    paddingHorizontal: 12,
+    borderRadius: authTheme.radius.button,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#D97706',
+  },
+
+  warningButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+});

@@ -36,13 +36,14 @@ function AttributeCard({ attribute }) {
           <TouchableOpacity
             onPress={() => Linking.openURL(link).catch(() => {})}
             hitSlop={10}
-            style={{ minHeight: 28, justifyContent: 'center' }}
+            style={{ minHeight: 40, justifyContent: 'center' }}
             accessibilityRole="link"
           >
             <Text style={[styles.pillText, { color: authTheme.colors.brandTeal, textDecorationLine: 'underline' }]}>source</Text>
           </TouchableOpacity>
         )}
       </View>
+      {!!attribute.note && <Text style={[styles.noteText, { marginTop: 4 }]}>{attribute.note}</Text>}
       {!!attribute.better_is && (
         <View style={{ marginTop: 8 }}>
           <View style={styles.rowBetween}>

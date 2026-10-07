@@ -17,6 +17,11 @@ import { AlertBox } from '../components';
 import { authTheme } from '../styles/authTheme';
 import { forgotPasswordStyles as styles } from '../styles/forgotPasswordStyles';
 import useKeyboardAwareScroll from '../utils/useKeyboardAwareScroll';
+import {
+  friendlyAuthError,
+  normalizeEmail,
+  validateEmail,
+} from '../utils/authValidation';
 
 const logo = require('../../assets/images/icon.png');
 
@@ -65,10 +70,11 @@ export default function ForgotPasswordScreen({ navigation }) {
   };
 
   const handleSendResetCode = async () => {
-    const cleanEmail = email.trim();
+    const cleanEmail = normalizeEmail(email);
 
-    if (!cleanEmail) {
-      setError('Please enter your email address.');
+    const emailError = validateEmail(cleanEmail);
+    if (emailError) {
+      setError(emailError);
       return;
     }
 
@@ -80,9 +86,7 @@ export default function ForgotPasswordScreen({ navigation }) {
         await supabase.auth.resetPasswordForEmail(cleanEmail);
 
       if (resetError) {
-        setError(
-          resetError.message || 'Could not send reset link. Please try again.'
-        );
+        setError(friendlyAuthError(resetError, 'Could not send the code. Please try again.'));
         return;
       }
 
@@ -91,9 +95,7 @@ export default function ForgotPasswordScreen({ navigation }) {
         flow: 'forgot-password',
       }, { pop: true });
     } catch (err) {
-      setError(
-        'Something went wrong. Please check your internet connection and try again.'
-      );
+      setError(friendlyAuthError(err));
     } finally {
       setLoading(false);
     }

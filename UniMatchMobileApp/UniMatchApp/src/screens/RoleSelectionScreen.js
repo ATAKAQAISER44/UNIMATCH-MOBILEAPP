@@ -20,6 +20,7 @@ import { resetUserRole } from '../services/userRole';
 import { AlertBox } from '../components';
 import { authTheme } from '../styles/authTheme';
 import { roleSelectionStyles as styles } from '../styles/roleSelectionStyles';
+import { friendlyAuthError } from '../utils/authValidation';
 
 const logo = require('../../assets/images/icon.png');
 
@@ -144,16 +145,27 @@ export default function RoleSelectionScreen({ navigation }) {
         return;
       }
 
-      const { error } = await supabase
+      // Only a student has a profile to fill in (web RoleSelection.jsx).
+      const updates =
+        selectedRole === 'Student'
+          ? { role: selectedRole, profile_completed: false }
+          : { role: selectedRole };
+
+      const { data: savedProfile, error } = await supabase
         .from('profiles')
-        .update({
-          role: selectedRole,
-          profile_completed: false,
-        })
-        .eq('id', user.id);
+        .update(updates)
+        .eq('id', user.id)
+        .select('role')
+        .maybeSingle();
 
       if (error) {
-        setMessage(error.message || 'Unable to save your role. Please try again.');
+        setMessage(friendlyAuthError(error, 'Could not save your role. Please try again.'));
+        return;
+      }
+
+      // No row updated: the profile is missing or could not be changed.
+      if (!savedProfile?.role) {
+        setMessage('Could not save your role. Please try again.');
         return;
       }
 
@@ -166,7 +178,7 @@ export default function RoleSelectionScreen({ navigation }) {
 
       navigation.replace('Dashboard');
     } catch (err) {
-      setMessage(err?.message || 'Something went wrong. Please try again.');
+      setMessage(friendlyAuthError(err));
     } finally {
       setLoading(false);
     }

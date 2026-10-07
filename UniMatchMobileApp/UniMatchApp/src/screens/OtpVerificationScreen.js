@@ -19,6 +19,7 @@ import { AlertBox } from '../components';
 import { authTheme } from '../styles/authTheme';
 import { otpVerificationStyles as styles } from '../styles/otpVerificationStyles';
 import useKeyboardAwareScroll from '../utils/useKeyboardAwareScroll';
+import { friendlyAuthError } from '../utils/authValidation';
 
 const logo = require('../../assets/images/icon.png');
 
@@ -195,7 +196,7 @@ export default function OtpVerificationScreen({ navigation, route = {} }) {
       });
 
       if (verifyError) {
-        setError(verifyError.message || 'This code is incorrect or has expired. Please try again.');
+        setError(friendlyAuthError(verifyError, 'This code is wrong or has expired. Please try again.'));
         return;
       }
 
@@ -211,9 +212,7 @@ export default function OtpVerificationScreen({ navigation, route = {} }) {
         routes: [{ name: 'Login' }],
       });
     } catch (err) {
-      setError(
-        'Something went wrong. Please check your internet connection and try again.'
-      );
+      setError(friendlyAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -250,7 +249,7 @@ export default function OtpVerificationScreen({ navigation, route = {} }) {
       }
 
       if (resendError) {
-        setError(resendError.message || 'Could not resend code. Please try again.');
+        setError(friendlyAuthError(resendError, 'Could not resend the code. Please try again.'));
         return;
       }
 
@@ -259,7 +258,7 @@ export default function OtpVerificationScreen({ navigation, route = {} }) {
       focusInput(0);
     } catch (err) {
       setSuccessMessage('');
-      setError('Something went wrong. Please try again.');
+      setError(friendlyAuthError(err));
     } finally {
       setResending(false);
     }

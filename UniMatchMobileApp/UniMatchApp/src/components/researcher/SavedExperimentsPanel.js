@@ -120,7 +120,14 @@ export default function SavedExperimentsPanel({ experiments, activeId, onLoad, o
                   “{experiment.note}”
                 </Text>
               )}
-              <Text style={[styles.noteText, { marginTop: 4 }]}>{formatExperimentDate(experiment.createdAt)}</Text>
+              {experiment.summary?.length > 0 && (
+                <Text style={[styles.mutedText, { marginTop: 3 }]} numberOfLines={2}>
+                  Top: {experiment.summary.map((row) => `#${row.rank} ${row.name}`).join(', ')}
+                </Text>
+              )}
+              <Text style={[styles.noteText, { marginTop: 4 }]}>
+                {formatExperimentDate(experiment.createdAt)} · stability ±{Math.round((experiment.variation ?? 0.2) * 100)}%
+              </Text>
 
               <View style={[styles.buttonRow, { marginTop: 9 }]}>
                 <GradientButton title={isActive ? 'Reload' : 'Load'} small onPress={() => onLoad(experiment)} />

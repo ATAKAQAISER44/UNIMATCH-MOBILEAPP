@@ -29,8 +29,10 @@ import {
   getSupabaseError,
   normalizeEducationLevel,
   normalizeIntendedLevel,
+  parseCountryList,
   sortOptionsAlphabetically,
 } from '../utils/profileSetupUtils';
+import { friendlyAuthError } from '../utils/authValidation';
 import { resetStudentProfile } from '../services/backendData';
 
 import ProfileSetupContent from '../components/profile-setup/ProfileSetupContent';
@@ -39,6 +41,15 @@ const TOTAL_STEPS = 4;
 const LOGIN_SCREEN = 'Login';
 const DASHBOARD_SCREEN = 'Dashboard';
 const PROFILE_VIEW_SCREEN = 'ProfileView';
+const ROLE_SELECTION_SCREEN = 'RoleSelection';
+
+// Saved numbers are shown as typed text; ?? keeps a saved 0 as "0".
+const toText = (value) => (value === null || value === undefined ? '' : String(value));
+
+const createInitialGeo = () => ({
+  ...INITIAL_GEO,
+  preferred_country: [],
+});
 
 const createInitialAcademic = () => ({
   ...INITIAL_ACADEMIC,
@@ -50,8 +61,8 @@ const mapAcademicData = (data) => ({
   intended_education_level: normalizeIntendedLevel(data?.intended_education_level),
   field_of_study: data?.field_of_study || '',
   score_type: data?.score_type === 'GPA/CGPA' ? 'CGPA' : data?.score_type || '',
-  score_value: String(data?.score_value || ''),
-  cgpa_scale: data?.cgpa_scale || null,
+  score_value: toText(data?.score_value),
+  cgpa_scale: data?.cgpa_scale ?? null,
 });
 
 const mapTestsData = (tests = []) =>
@@ -60,16 +71,17 @@ const mapTestsData = (tests = []) =>
     score: test.score,
   }));
 
+// The web saves several countries as one string: "Germany, France".
 const mapGeoData = (data) => ({
-  preferred_region: data?.preferred_region || '',
-  preferred_country: data?.preferred_country || '',
+  preferred_region: data?.preferred_region ?? '',
+  preferred_country: parseCountryList(data?.preferred_country),
 });
 
 const mapFinancialData = (data) => ({
-  min_tuition_fee: String(data?.min_tuition_fee || ''),
-  max_tuition_fee: String(data?.max_tuition_fee || ''),
-  living_cost_tolerance: String(data?.living_cost_tolerance || ''),
-  scholarship_requirement: data?.scholarship_requirement || '',
+  min_tuition_fee: toText(data?.min_tuition_fee),
+  max_tuition_fee: toText(data?.max_tuition_fee),
+  living_cost_tolerance: toText(data?.living_cost_tolerance),
+  scholarship_requirement: data?.scholarship_requirement ?? '',
 });
 
 const mapPriorityData = (data) => ({
@@ -188,7 +200,7 @@ export default function ProfileSetupScreen({ navigation, route }) {
   const [testScore, setTestScore] = useState('');
   const [tests, setTests] = useState([]);
 
-  const [geo, setGeo] = useState(INITIAL_GEO);
+  const [geo, setGeo] = useState(createInitialGeo);
   const [financial, setFinancial] = useState(INITIAL_FINANCIAL);
   const [priorities, setPriorities] = useState(INITIAL_PRIORITIES);
 
@@ -203,7 +215,6 @@ export default function ProfileSetupScreen({ navigation, route }) {
     const { key } = picker;
 
     if (key === 'geo.region') return geo.preferred_region;
-    if (key === 'geo.country') return geo.preferred_country;
     if (key === 'financial.scholarship') return financial.scholarship_requirement;
     if (key === 'test') return selectedTest;
 
@@ -219,7 +230,6 @@ export default function ProfileSetupScreen({ navigation, route }) {
   }, [
     academic,
     financial.scholarship_requirement,
-    geo.preferred_country,
     geo.preferred_region,
     picker,
     priorities,
@@ -344,13 +354,34 @@ export default function ProfileSetupScreen({ navigation, route }) {
 
       if (!user) return;
 
+      // Only students fill in this form (web ProfileSetup.jsx).
+      const { data: roleData, error: roleError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (roleError) throw roleError;
+
+      const role = String(roleData?.role || '').trim().toLowerCase();
+
+      if (!role) {
+        navigation.replace(ROLE_SELECTION_SCREEN);
+        return;
+      }
+
+      if (role !== 'student') {
+        navigation.replace(DASHBOARD_SCREEN);
+        return;
+      }
+
       const profileData = await fetchExistingProfileData(user.id);
       applyExistingProfileData(profileData);
     } catch (error) {
       console.log('Load profile error:', error);
       setMessage('Your saved profile could not be loaded. Please check your connection and try again.');
     }
-  }, [applyExistingProfileData, fetchExistingProfileData, getCurrentUser]);
+  }, [applyExistingProfileData, fetchExistingProfileData, getCurrentUser, navigation]);
 
   const initializeProfileSetup = useCallback(async () => {
     setPageLoading(true);
@@ -388,22 +419,43 @@ export default function ProfileSetupScreen({ navigation, route }) {
   const clearPreferredCountry = useCallback(() => {
     setGeo((prev) => ({
       ...prev,
-      preferred_country: '',
+      preferred_country: [],
     }));
 
     clearMessage();
   }, [clearMessage]);
 
+  const toggleCountry = useCallback(
+    (country) => {
+      setGeo((prev) => {
+        const current = parseCountryList(prev.preferred_country);
+
+        return {
+          ...prev,
+          preferred_country: current.includes(country)
+            ? current.filter((item) => item !== country)
+            : [...current, country],
+        };
+      });
+
+      clearMessage();
+    },
+    [clearMessage]
+  );
+
   const clearPriority = useCallback(
     (priorityKey) => {
       const startIndex = PRIORITY_KEYS.indexOf(priorityKey);
 
+      // Later priorities move up one slot (web ProfileSetup.jsx).
       setPriorities((prev) => {
         const updated = { ...prev };
 
-        for (let index = startIndex; index < PRIORITY_KEYS.length; index += 1) {
-          updated[PRIORITY_KEYS[index]] = '';
+        for (let index = startIndex; index < PRIORITY_KEYS.length - 1; index += 1) {
+          updated[PRIORITY_KEYS[index]] = updated[PRIORITY_KEYS[index + 1]] || '';
         }
+
+        updated[PRIORITY_KEYS[PRIORITY_KEYS.length - 1]] = '';
 
         return updated;
       });
@@ -468,16 +520,8 @@ export default function ProfileSetupScreen({ navigation, route }) {
     if (key === 'geo.region') {
       setGeo({
         preferred_region: value,
-        preferred_country: '',
+        preferred_country: [],
       });
-      return;
-    }
-
-    if (key === 'geo.country') {
-      setGeo((prev) => ({
-        ...prev,
-        preferred_country: value,
-      }));
     }
   }, []);
 
@@ -701,14 +745,18 @@ export default function ProfileSetupScreen({ navigation, route }) {
       return 'Please select a preferred region.';
     }
 
-    if (!geo.preferred_country) {
-      return '';
-    }
-
+    const selectedCountries = parseCountryList(geo.preferred_country);
     const validCountries = REGION_COUNTRIES[geo.preferred_region] || [];
+    const wrongCountries = selectedCountries.filter(
+      (country) => !validCountries.includes(country)
+    );
 
-    if (!validCountries.includes(geo.preferred_country)) {
-      return 'Selected country does not belong to the selected region.';
+    if (wrongCountries.length) {
+      return `${wrongCountries.join(', ')} ${
+        wrongCountries.length > 1 ? 'are' : 'is'
+      } not in ${geo.preferred_region}. Remove ${
+        wrongCountries.length > 1 ? 'them' : 'it'
+      } or pick another region.`;
     }
 
     return '';
@@ -829,12 +877,20 @@ export default function ProfileSetupScreen({ navigation, route }) {
       return;
     }
 
+    // Step 1 in edit mode: back to the profile view.
     if (explicitEditMode) {
       navigation.navigate(returnTo || PROFILE_VIEW_SCREEN, {
         refreshAt: Date.now(),
       }, { pop: true });
+      return;
     }
-  }, [clearMessage, explicitEditMode, navigation, returnTo, step]);
+
+    if (isEditMode && navigation.canGoBack?.()) {
+      navigation.goBack();
+    }
+  }, [clearMessage, explicitEditMode, isEditMode, navigation, returnTo, step]);
+
+  const canExit = explicitEditMode || (isEditMode && !!navigation.canGoBack?.());
 
   const handleStepPress = useCallback(
     (targetStep) => {
@@ -881,7 +937,7 @@ export default function ProfileSetupScreen({ navigation, route }) {
     (userId) => ({
       user_id: userId,
       preferred_region: geo.preferred_region,
-      preferred_country: geo.preferred_country || '',
+      preferred_country: parseCountryList(geo.preferred_country).join(', '),
     }),
     [geo.preferred_country, geo.preferred_region]
   );
@@ -910,6 +966,8 @@ export default function ProfileSetupScreen({ navigation, route }) {
     [priorities]
   );
 
+  // Every preference table first; profile_completed only after all of them
+  // (and the test scores) are saved (web ProfileSetup.jsx).
   const saveProfilePreferences = useCallback(
     async (userId) => {
       const saveResults = await Promise.all([
@@ -928,19 +986,11 @@ export default function ProfileSetupScreen({ navigation, route }) {
         supabase
           .from('priority_preferences')
           .upsert(buildPriorityPayload(userId), { onConflict: 'user_id' }),
-
-        supabase
-          .from('profiles')
-          .update({ profile_completed: true })
-          .eq('id', userId),
       ]);
 
       const saveError = getSupabaseError(saveResults);
 
       if (saveError) throw saveError;
-
-      // Shortlist, plans and smart match read the new profile from now on.
-      resetStudentProfile();
     },
     [
       buildAcademicPayload,
@@ -949,6 +999,18 @@ export default function ProfileSetupScreen({ navigation, route }) {
       buildPriorityPayload,
     ]
   );
+
+  const markProfileCompleted = useCallback(async (userId) => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ profile_completed: true })
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    // Shortlist, plans and smart match read the new profile from now on.
+    resetStudentProfile();
+  }, []);
 
   const saveTestScores = useCallback(
     async (userId) => {
@@ -1006,11 +1068,12 @@ export default function ProfileSetupScreen({ navigation, route }) {
 
       await saveProfilePreferences(user.id);
       await saveTestScores(user.id);
+      await markProfileCompleted(user.id);
 
       goAfterSuccessfulSubmit();
     } catch (error) {
       console.log('Profile submit error:', error);
-      setMessage(error?.message || 'Something went wrong while saving your profile.');
+      setMessage(friendlyAuthError(error, 'Could not save your profile. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -1018,6 +1081,7 @@ export default function ProfileSetupScreen({ navigation, route }) {
     clearMessage,
     getCurrentUser,
     goAfterSuccessfulSubmit,
+    markProfileCompleted,
     saveProfilePreferences,
     saveTestScores,
     validateAllSteps,
@@ -1029,6 +1093,7 @@ export default function ProfileSetupScreen({ navigation, route }) {
       loading={loading}
       pageLoading={pageLoading}
       isEditMode={isEditMode}
+      canExit={canExit}
       message={message}
       ranges={ranges}
       picker={picker}
@@ -1051,6 +1116,7 @@ export default function ProfileSetupScreen({ navigation, route }) {
       addTest={addTest}
       removeTest={removeTest}
       clearPreferredCountry={clearPreferredCountry}
+      toggleCountry={toggleCountry}
       clearPriority={clearPriority}
       isPriorityLocked={isPriorityLocked}
       getPriorityPlaceholder={getPriorityPlaceholder}

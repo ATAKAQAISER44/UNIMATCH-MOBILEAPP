@@ -8,6 +8,7 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
+  StyleSheet,
 } from 'react-native';
 import { Text, TextInput } from '../components/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +24,15 @@ import { resetUserRole } from '../services/userRole';
 import { authTheme } from '../styles/authTheme';
 import { signUpStyles as styles } from '../styles/signUpStyles';
 import useKeyboardAwareScroll from '../utils/useKeyboardAwareScroll';
+import { COUNTRIES } from '../constants/countries';
+import {
+  EMAIL_REGEX,
+  NAME_MAX_LENGTH,
+  friendlyAuthError,
+  getPasswordStrength,
+  isDuplicateEmailError,
+  validateNewPassword,
+} from '../utils/authValidation';
 
 const logo = require('../../assets/images/icon.png');
 
@@ -54,55 +64,16 @@ const languageOptions = [
   'Vietnamese',
 ].sort();
 
-const countryOptions = [
-  'Australia',
-  'Austria',
-  'Belgium',
-  'Brazil',
-  'Canada',
-  'China',
-  'Denmark',
-  'Finland',
-  'France',
-  'Germany',
-  'India',
-  'Ireland',
-  'Italy',
-  'Japan',
-  'Malaysia',
-  'Netherlands',
-  'New Zealand',
-  'Norway',
-  'Pakistan',
-  'Portugal',
-  'Qatar',
-  'Saudi Arabia',
-  'Singapore',
-  'South Africa',
-  'South Korea',
-  'Spain',
-  'Sweden',
-  'Switzerland',
-  'Turkey',
-  'United Arab Emirates',
-  'United Kingdom',
-  'United States',
-].sort();
+const countryOptions = COUNTRIES;
 
 const DUPLICATE_EMAIL_MESSAGE = 'An account with this email already exists. Please log in instead.';
 
-// Raw Supabase / network errors as messages a user can act on.
+// Raw Supabase / network errors as short messages (never the raw text).
 function friendlySignUpError(error) {
-  const raw = error?.message || '';
-  if (/already registered|already exists|duplicate/i.test(raw)) return DUPLICATE_EMAIL_MESSAGE;
-  if (/rate limit|too many|security purposes/i.test(raw)) return 'Too many attempts. Please wait a minute and try again.';
-  if (/failed to fetch|network|load failed/i.test(raw)) return 'Could not reach the server. Check your internet connection and try again.';
-  if (/invalid.*email|unable to validate email/i.test(raw)) return 'Please enter a valid email address.';
-  return raw || 'Something went wrong. Please try again.';
+  if (isDuplicateEmailError(error)) return DUPLICATE_EMAIL_MESSAGE;
+  return friendlyAuthError(error);
 }
 
-const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&]).{8,}$/;
-const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
 // Letters (Latin incl. accents, Urdu/Arabic, Hindi), digits, spaces,
 // apostrophes, hyphens and dots. Digits are fine, but not a name of only digits.
 const NAME_REGEX = /^[A-Za-z0-9\u00C0-\u024F\u0600-\u06FF\u0900-\u097F .'-]+$/;
@@ -116,34 +87,10 @@ export function validateFullName(value) {
   const letters = (name.match(NAME_LETTER_REGEX) || []).length;
   if (!letters) return 'Name cannot be only numbers. Please include letters.';
   if (letters < 2) return 'Please enter your real full name.';
-  if (name.length > 50) return 'Name must be 50 characters or fewer.';
+  if (name.length > NAME_MAX_LENGTH) return `Name must be ${NAME_MAX_LENGTH} characters or fewer.`;
   return '';
 }
 const DOB_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
-
-function getPasswordStrength(password) {
-  if (!password) {
-    return { label: '', color: '#D1D5DB', width: '0%' };
-  }
-
-  const score = [
-    password.length >= 8,
-    /[A-Za-z]/.test(password),
-    /\d/.test(password),
-    /[@$!%*#?&]/.test(password),
-    password.length >= 12,
-  ].filter(Boolean).length;
-
-  if (score <= 2) {
-    return { label: 'Weak', color: '#EF4444', width: '33%' };
-  }
-
-  if (score <= 4) {
-    return { label: 'Medium', color: '#F59E0B', width: '66%' };
-  }
-
-  return { label: 'Strong', color: '#10B981', width: '100%' };
-}
 
 function formatDobInput(value) {
   const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
@@ -233,10 +180,21 @@ function SelectField({
   onSelect,
   disabled,
   containerStyle,
+  searchable = false,
 }) {
   const [visible, setVisible] = useState(false);
+  const [query, setQuery] = useState('');
 
-  const closeModal = () => setVisible(false);
+  const closeModal = () => {
+    setVisible(false);
+    setQuery('');
+  };
+
+  const filteredOptions = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    if (!searchable || !text) return options;
+    return options.filter((item) => item.toLowerCase().includes(text));
+  }, [options, query, searchable]);
 
   const handleSelect = (item) => {
     onSelect(item);
@@ -287,8 +245,21 @@ function SelectField({
               </TouchableOpacity>
             </View>
 
+            {searchable && (
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Search"
+                placeholderTextColor="#8A9AB0"
+                autoCapitalize="none"
+                autoCorrect={false}
+                clearButtonMode="while-editing"
+                style={localStyles.searchInput}
+              />
+            )}
+
             <FlatList
-              data={options}
+              data={filteredOptions}
               keyExtractor={(item) => item}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
@@ -316,7 +287,7 @@ function SelectField({
                 );
               }}
               ListEmptyComponent={
-                <Text style={styles.emptyText}>No option found.</Text>
+                <Text style={styles.emptyText}>No match found.</Text>
               }
             />
           </View>
@@ -421,10 +392,9 @@ export default function SignUpScreen({ navigation }) {
       return false;
     }
 
-    if (!PASSWORD_REGEX.test(form.password)) {
-      showMessage(
-        'Password must be at least 8 characters and include a letter, number, and special character.'
-      );
+    const passwordError = validateNewPassword(form.password);
+    if (passwordError) {
+      showMessage(passwordError);
       return false;
     }
 
@@ -549,7 +519,7 @@ export default function SignUpScreen({ navigation }) {
         showMessage('Unable to create account. Please try again.');
       }
     } catch (err) {
-      showMessage(err?.message || 'Something went wrong. Please try again.');
+      showMessage(friendlySignUpError(err));
     } finally {
       setLoading(false);
     }
@@ -578,6 +548,16 @@ export default function SignUpScreen({ navigation }) {
             {!!message && (
               <View style={styles.alertWrap}>
                 <AlertBox message={message} type={messageType} />
+
+                {message === DUPLICATE_EMAIL_MESSAGE && (
+                  <TouchableOpacity
+                    style={localStyles.goLoginButton}
+                    onPress={() => navigation.navigate('Login', undefined, { pop: true })}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={localStyles.goLoginText}>Go to Login</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
@@ -593,7 +573,7 @@ export default function SignUpScreen({ navigation }) {
                 label="Full Name"
                 value={form.fullName}
                 onChangeText={(value) => setField('fullName', value)}
-                maxLength={50}
+                maxLength={NAME_MAX_LENGTH}
                 placeholder="Enter your full name"
                 autoCapitalize="words"
                 editable={!loading}
@@ -687,6 +667,7 @@ export default function SignUpScreen({ navigation }) {
                 value={form.country}
                 placeholder="Select country"
                 options={countryOptions}
+                searchable
                 disabled={loading}
                 onSelect={(value) => setField('country', value)}
               />
@@ -737,3 +718,34 @@ export default function SignUpScreen({ navigation }) {
     </LinearGradient>
   );
 }
+
+const localStyles = StyleSheet.create({
+  searchInput: {
+    minHeight: 44,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    borderRadius: authTheme.radius.input,
+    borderWidth: 1,
+    borderColor: authTheme.colors.brandBorder,
+    backgroundColor: authTheme.colors.white,
+    fontSize: 14,
+    color: authTheme.colors.gray900,
+  },
+
+  goLoginButton: {
+    alignSelf: 'flex-start',
+    minHeight: 40,
+    marginTop: 8,
+    paddingHorizontal: 16,
+    borderRadius: authTheme.radius.button,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: authTheme.colors.brandTeal,
+  },
+
+  goLoginText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: authTheme.colors.white,
+  },
+});
