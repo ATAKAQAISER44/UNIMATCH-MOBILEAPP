@@ -15,16 +15,14 @@ import {
 import { Text, TextInput } from '../components/AppText';
 
 import { LinearGradient } from 'expo-linear-gradient';
-import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
 
 import { supabase } from '../services/supabase';
 import { resetUserRole } from '../services/userRole';
 import { AlertBox } from '../components';
+import GoogleButton from '../components/GoogleButton';
+import { signInWithGoogle } from '../services/googleAuth';
 import { loginStyles as styles } from '../styles/loginStyles';
 import { authTheme } from '../styles/authTheme';
-
-WebBrowser.maybeCompleteAuthSession();
 
 const LOGO = require('../../assets/images/icon.png');
 
@@ -47,40 +45,6 @@ function getFriendlyAuthError(message = '') {
   }
 
   return message || 'Something went wrong. Please try again.';
-}
-
-function parseUrlPart(part = '', params = {}) {
-  part
-    .replace(/^\?/, '')
-    .replace(/^#/, '')
-    .split('&')
-    .filter(Boolean)
-    .forEach((pair) => {
-      const [key, value] = pair.split('=');
-
-      if (key) {
-        params[decodeURIComponent(key)] = decodeURIComponent(value || '');
-      }
-    });
-
-  return params;
-}
-
-function parseAuthParams(url = '') {
-  const params = {};
-  const queryPart = url.includes('?')
-    ? url.split('?')[1]?.split('#')[0]
-    : '';
-  const hashPart = url.includes('#') ? url.split('#')[1] : '';
-
-  parseUrlPart(queryPart, params);
-  parseUrlPart(hashPart, params);
-
-  return params;
-}
-
-function getUserIdFromSessionData(sessionData) {
-  return sessionData?.user?.id || sessionData?.session?.user?.id || null;
 }
 
 export default function LoginScreen({ navigation }) {
@@ -190,86 +154,12 @@ export default function LoginScreen({ navigation }) {
   }, [email, goNextAfterLogin, password]);
 
   const handleGoogleLogin = useCallback(async () => {
+    setGoogleLoading(true);
+    setError('');
     try {
-      setGoogleLoading(true);
-      setError('');
-
-      const redirectTo = Linking.createURL('auth/callback');
-
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-          skipBrowserRedirect: true,
-          queryParams: {
-            prompt: 'select_account',
-          },
-        },
-      });
-
-      if (oauthError) {
-        setError(getFriendlyAuthError(oauthError.message));
-        return;
-      }
-
-      if (!data?.url) {
-        setError('Google sign-in could not be started. Please try again.');
-        return;
-      }
-
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-
-      if (result.type !== 'success' || !result.url) {
-        return;
-      }
-
-      const params = parseAuthParams(result.url);
-
-      if (params.error || params.error_description) {
-        setError(getFriendlyAuthError(params.error_description || params.error));
-        return;
-      }
-
-      if (params.code) {
-        const { data: sessionData, error: exchangeError } =
-          await supabase.auth.exchangeCodeForSession(params.code);
-
-        if (exchangeError) {
-          setError(getFriendlyAuthError(exchangeError.message));
-          return;
-        }
-
-        await goNextAfterLogin(getUserIdFromSessionData(sessionData));
-        return;
-      }
-
-      if (params.access_token && params.refresh_token) {
-        const { data: sessionData, error: sessionError } =
-          await supabase.auth.setSession({
-            access_token: params.access_token,
-            refresh_token: params.refresh_token,
-          });
-
-        if (sessionError) {
-          setError(getFriendlyAuthError(sessionError.message));
-          return;
-        }
-
-        await goNextAfterLogin(getUserIdFromSessionData(sessionData));
-        return;
-      }
-
-      const { data: existingSession } = await supabase.auth.getSession();
-      const userId = existingSession?.session?.user?.id;
-
-      if (!userId) {
-        setError('Google sign-in finished, but we could not log you in. Please try again.');
-        return;
-      }
-
-      await goNextAfterLogin(userId);
-    } catch (err) {
-      setError('Google sign-in failed. Please check your internet connection and try again.');
+      const result = await signInWithGoogle();
+      if (result.error) setError(result.error);
+      else if (result.userId) await goNextAfterLogin(result.userId);
     } finally {
       setGoogleLoading(false);
     }
@@ -318,38 +208,12 @@ export default function LoginScreen({ navigation }) {
 
               <Text style={styles.brandName}>UniMatch</Text>
 
-              {/* <TouchableOpacity
-                style={[
-                  styles.googleButton,
-                  isBusy && styles.googleButtonDisabled,
-                ]}
+              <GoogleButton
                 onPress={handleGoogleLogin}
-                activeOpacity={0.85}
+                loading={googleLoading}
                 disabled={isBusy}
-              >
-                {googleLoading ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={authTheme.colors.brandTeal}
-                  />
-                ) : (
-                  <>
-                    <View style={styles.googleIconWrap}>
-                      <Text style={styles.googleIcon}>G</Text>
-                    </View>
-
-                    <Text style={styles.googleText}>
-                      Continue with Google
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>or log in with email</Text>
-                <View style={styles.dividerLine} />
-              </View> */}
+                dividerText="or log in with email"
+              />
 
               <View style={styles.form}>
                 {!!error && (

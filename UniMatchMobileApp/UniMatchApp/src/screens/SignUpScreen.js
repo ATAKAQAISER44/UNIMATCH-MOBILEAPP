@@ -17,6 +17,9 @@ import { Feather } from '@expo/vector-icons';
 
 import { supabase } from '../services/supabase';
 import { AlertBox } from '../components';
+import GoogleButton from '../components/GoogleButton';
+import { routeAfterSignIn, signInWithGoogle } from '../services/googleAuth';
+import { resetUserRole } from '../services/userRole';
 import { authTheme } from '../styles/authTheme';
 import { signUpStyles as styles } from '../styles/signUpStyles';
 import useKeyboardAwareScroll from '../utils/useKeyboardAwareScroll';
@@ -375,6 +378,7 @@ export default function SignUpScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('error');
@@ -460,6 +464,23 @@ export default function SignUpScreen({ navigation }) {
     }
 
     return true;
+  };
+
+  // Google accounts need no password or code; new ones go on to Role Selection.
+  const handleGoogleSignUp = async () => {
+    setGoogleLoading(true);
+    setMessage('');
+    try {
+      const result = await signInWithGoogle();
+      if (result.error) {
+        showMessage(result.error);
+      } else if (result.userId) {
+        resetUserRole();
+        await routeAfterSignIn(navigation, result.userId);
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleSignUp = async () => {
@@ -561,6 +582,13 @@ export default function SignUpScreen({ navigation }) {
             )}
 
             <View style={styles.form}>
+              <GoogleButton
+                onPress={handleGoogleSignUp}
+                loading={googleLoading}
+                disabled={loading}
+                dividerText="or sign up with email"
+              />
+
               <FieldInput
                 label="Full Name"
                 value={form.fullName}

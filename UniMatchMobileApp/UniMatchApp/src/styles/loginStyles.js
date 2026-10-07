@@ -199,6 +199,7 @@ export const loginStyles = StyleSheet.create({
 
   passwordInput: {
     flex: 1,
+    minWidth: 0,
     minHeight: IS_SMALL_HEIGHT ? 38 : 40,
     fontSize: 13,
     color: authTheme.colors.gray900,
