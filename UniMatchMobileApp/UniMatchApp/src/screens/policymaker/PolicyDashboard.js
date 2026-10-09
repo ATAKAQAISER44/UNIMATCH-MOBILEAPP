@@ -27,6 +27,7 @@ import { RANKINGS } from '../../constants/roleConstants';
 import { useCountryList, useCountryOverview, usePolicyCountry } from '../../services/policyApi';
 import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { authTheme } from '../../styles/authTheme';
+import { useWelcomeGreeting } from '../../services/welcome';
 
 function CountryPicker({ value, onPick }) {
   const { data, loading, error, retry } = useCountryList();
@@ -97,6 +98,7 @@ const STEPS = [
 ];
 
 export default function PolicyDashboard({ navigation, profile, refreshing, onRefresh }) {
+  const greeting = useWelcomeGreeting();
   const [country, saveCountry] = usePolicyCountry();
   const [changing, setChanging] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -125,7 +127,7 @@ export default function PolicyDashboard({ navigation, profile, refreshing, onRef
     <AppLayout navigation={navigation} activeKey="dashboard" isRoot refreshing={refreshing} onRefresh={onRefresh}>
       <PageHeader
         eyebrow="Policymaker"
-        title={`Welcome back${profile?.full_name ? `, ${profile.full_name}` : ''}`}
+        title={`${greeting}${profile?.full_name ? `, ${profile.full_name}` : ''}`}
         subtitle="How a country's universities do in QS, THE and ARWU, and how open and affordable they are."
       >
         <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: authTheme.colors.brandBorder }}>

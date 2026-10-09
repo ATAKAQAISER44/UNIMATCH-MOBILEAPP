@@ -10,6 +10,7 @@ import {
 import { Text } from '../AppText';
 
 import { dashboardStyles as styles } from '../../styles/dashboardStyles';
+import { useWelcomeGreeting } from '../../services/welcome';
 
 const LOGO = require('../../../assets/images/icon.png');
 
@@ -68,6 +69,7 @@ const DashboardHero = memo(function DashboardHero({
   recommendationJustification,
   onOpenRecommended,
 }) {
+  const greeting = useWelcomeGreeting();
   return (
     <View style={styles.heroCard}>
       <View style={styles.heroHeaderRow}>
@@ -78,7 +80,7 @@ const DashboardHero = memo(function DashboardHero({
       </View>
 
       <Text style={styles.welcomeTitle}>
-        Welcome back
+        {greeting}
         {profile?.full_name ? (
           <Text style={styles.welcomeName}>, {profile.full_name}</Text>
         ) : null}

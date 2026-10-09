@@ -21,6 +21,7 @@ import { RANKINGS } from '../../constants/roleConstants';
 import { useAdminInstitution, useInstitutionPerformance, useInstitutionProfile, useStudentDemand } from '../../services/adminApi';
 import { buildRecommendations } from '../../utils/adminRecommendations';
 import { HowItWorks, RankingsCovered, ToolGrid, WhatYouGet } from '../../components/app/GettingStarted';
+import { useWelcomeGreeting } from '../../services/welcome';
 
 const WHAT_YOU_GET = [
   { icon: 'podium-outline', title: 'Rank and trend', text: 'Your rank in QS, THE and ARWU, and how it moved over the years.' },
@@ -61,6 +62,7 @@ function InstitutionPicker({ onPick }) {
 }
 
 export default function AdminDashboard({ navigation, profile, refreshing, onRefresh }) {
+  const greeting = useWelcomeGreeting();
   const [institution, saveInstitution] = useAdminInstitution();
   const [changing, setChanging] = useState(false);
   const performance = useInstitutionPerformance(institution?.key);
@@ -82,7 +84,7 @@ export default function AdminDashboard({ navigation, profile, refreshing, onRefr
     <AppLayout navigation={navigation} activeKey="dashboard" isRoot refreshing={refreshing} onRefresh={onRefresh}>
       <PageHeader
         eyebrow="University Administrator"
-        title={`Welcome back${profile?.full_name ? `, ${profile.full_name}` : ''}`}
+        title={`${greeting}${profile?.full_name ? `, ${profile.full_name}` : ''}`}
         subtitle="Where your university stands in QS, THE and ARWU, and how it compares with similar universities."
       >
         <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: authTheme.colors.brandBorder }}>

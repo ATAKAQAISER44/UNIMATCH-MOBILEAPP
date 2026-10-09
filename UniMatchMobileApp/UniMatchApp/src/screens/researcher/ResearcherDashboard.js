@@ -27,6 +27,7 @@ import {
   RESEARCHER_METRICS,
   RESEARCHER_ROUTES,
 } from '../../constants/researcherConstants';
+import { useWelcomeGreeting } from '../../services/welcome';
 
 const FEATURES = {
   qs: ['Reputation', 'Employability'],
@@ -236,6 +237,7 @@ function RecentExperiments({ experiments, navigation }) {
 }
 
 export default function ResearcherDashboard({ navigation, profile, refreshing, onRefresh }) {
+  const greeting = useWelcomeGreeting();
   const [dataset, setDataset] = useState(chosenDataset);
   const [experiments, setExperiments] = useState([]);
 
@@ -262,7 +264,7 @@ export default function ResearcherDashboard({ navigation, profile, refreshing, o
     <ResearcherLayout navigation={navigation} activeKey="dashboard" isRoot refreshing={refreshing} onRefresh={onRefresh}>
       <PageHeader
         eyebrow="Researcher"
-        title={`Welcome back${profile?.full_name ? `, ${profile.full_name}` : ''}`}
+        title={`${greeting}${profile?.full_name ? `, ${profile.full_name}` : ''}`}
         subtitle="Study how QS, THE and ARWU rank universities and test your own weightings. Official rankings are never changed."
       >
         <View
