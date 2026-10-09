@@ -33,6 +33,7 @@ import { researcherStyles as styles } from '../../styles/researcherStyles';
 import { ATTRIBUTE_EXPLORER_COLUMNS, PAGE_SIZE_OPTIONS } from '../../constants/researcherConstants';
 import { fetchAllPages, fetchAttributesExplorer } from '../../services/researcherApi';
 import { shareCSV } from '../../utils/researcherExport';
+import { uniqueKeys } from '../../utils/listKeys';
 
 const PAGE_SIZE_SELECT = PAGE_SIZE_OPTIONS.map((value) => ({ value, label: `${value} per page` }));
 
@@ -189,6 +190,8 @@ export default function ResearcherAttributesScreen({ navigation }) {
   const firstResult = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
   const lastResult = Math.min(page * pageSize, totalCount);
 
+  const rowKeys = uniqueKeys(rows, (row) => `${row.name || ''}|${row.country || ''}`);
+
   return (
     <ResearcherLayout
       navigation={navigation}
@@ -253,8 +256,10 @@ export default function ResearcherAttributesScreen({ navigation }) {
         ) : rows.length === 0 ? (
           !error && <EmptyState text="No universities found." />
         ) : (
+          // The attributes data gives every row the same university_id, so
+          // keys are built from name + country (unique within the page).
           rows.map((row, index) => {
-            const key = row.university_id || `${row.name}-${index}`;
+            const key = rowKeys[index];
             return (
               <AttributeRow
                 key={key}
