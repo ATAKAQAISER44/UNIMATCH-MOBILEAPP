@@ -63,6 +63,20 @@ export async function signInWithGoogle() {
       console.log(`[Google sign-in] redirect URL: ${redirectTo}`);
     }
 
+    // Supabase never redirects to an address whose host is an IP address
+    // (other than 127.0.0.1), whatever the Redirect URLs list says. In Expo Go
+    // on a LAN the address is exp://192.168.x.x:8081/..., so Supabase would
+    // send the browser to the web Site URL (localhost) instead. Explain the
+    // fix rather than opening a page that cannot load. Installed builds use
+    // unimatch://auth/callback and are not affected.
+    const host = (redirectTo.match(/^[a-z][a-z0-9+.-]*:\/\/([^/:?#]+)/i) || [])[1] || '';
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) && !host.startsWith('127.')) {
+      return {
+        error:
+          'Google sign-in cannot return to Expo Go on a local IP address. Restart the app with "npx expo start --tunnel" and try again.',
+      };
+    }
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
