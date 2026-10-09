@@ -56,6 +56,12 @@ function friendly(message = '') {
 export async function signInWithGoogle() {
   try {
     const redirectTo = Linking.createURL('auth/callback');
+    if (__DEV__) {
+      // This exact address must be in Supabase -> Authentication -> URL
+      // Configuration -> Redirect URLs, otherwise Supabase sends the browser
+      // to the web Site URL (localhost) and the phone shows "can't be reached".
+      console.log(`[Google sign-in] redirect URL: ${redirectTo}`);
+    }
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
